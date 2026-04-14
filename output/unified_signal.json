@@ -6,7 +6,7 @@
       "Breakfast at the Frat (682K rows, 156 weeks, price+promo)",
       "Let's Get Sort-of-Real (300M transactions, basket missions)"
     ],
-    "last_updated": "2026-04-14T01:16:15.687407"
+    "last_updated": "2026-04-14T02:03:11.834824"
   },
   "basket_analysis": {
     "soup_companions": [
@@ -689,9 +689,184 @@
     ]
   },
   "demographics": {
-    "top_soup_buyer_segment": {},
-    "all_segments": [],
-    "coupon_usage_by_dept": [],
-    "spend_trajectory": []
+    "top_soup_buyer_segment": {
+      "age_group": "Age Group4",
+      "income_group": "Level1",
+      "has_kids": "None/Unknown",
+      "homeowner": "Unknown",
+      "soup_penetration_pct": 100.0
+    },
+    "all_segments": [
+      {
+        "age_group": "Age Group4",
+        "income_group": "Level1",
+        "has_kids": "None/Unknown",
+        "homeowner": "Unknown",
+        "marital_status": "Y",
+        "soup_buyers": 8,
+        "total_buyers": 8,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group3",
+        "income_group": "Level4",
+        "has_kids": "None/Unknown",
+        "homeowner": "Unknown",
+        "marital_status": "Y",
+        "soup_buyers": 6,
+        "total_buyers": 6,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group5",
+        "income_group": "Level4",
+        "has_kids": "None/Unknown",
+        "homeowner": "Homeowner",
+        "marital_status": "X",
+        "soup_buyers": 5,
+        "total_buyers": 5,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group3",
+        "income_group": "Level5",
+        "has_kids": "None/Unknown",
+        "homeowner": "Homeowner",
+        "marital_status": "X",
+        "soup_buyers": 6,
+        "total_buyers": 6,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group6",
+        "income_group": "Level6",
+        "has_kids": "None/Unknown",
+        "homeowner": "Homeowner",
+        "marital_status": "X",
+        "soup_buyers": 7,
+        "total_buyers": 7,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group4",
+        "income_group": "Level6",
+        "has_kids": "1",
+        "homeowner": "Homeowner",
+        "marital_status": "X",
+        "soup_buyers": 5,
+        "total_buyers": 5,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group4",
+        "income_group": "Level4",
+        "has_kids": "None/Unknown",
+        "homeowner": "Unknown",
+        "marital_status": "Y",
+        "soup_buyers": 15,
+        "total_buyers": 15,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group1",
+        "income_group": "Level4",
+        "has_kids": "None/Unknown",
+        "homeowner": "Unknown",
+        "marital_status": "Y",
+        "soup_buyers": 6,
+        "total_buyers": 6,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group4",
+        "income_group": "Level5",
+        "has_kids": "None/Unknown",
+        "homeowner": "Homeowner",
+        "marital_status": "Z",
+        "soup_buyers": 6,
+        "total_buyers": 6,
+        "soup_penetration_pct": 100.0
+      },
+      {
+        "age_group": "Age Group6",
+        "income_group": "Level4",
+        "has_kids": "None/Unknown",
+        "homeowner": "Homeowner",
+        "marital_status": "Z",
+        "soup_buyers": 6,
+        "total_buyers": 6,
+        "soup_penetration_pct": 100.0
+      }
+    ],
+    "coupon_usage_by_dept": [
+      {
+        "DEPARTMENT": "FROZEN GROCERY",
+        "total_hh": 173,
+        "coupon_users": 53,
+        "coupon_pct": 30.6
+      },
+      {
+        "DEPARTMENT": "DAIRY DELI",
+        "total_hh": 50,
+        "coupon_users": 15,
+        "coupon_pct": 30.0
+      },
+      {
+        "DEPARTMENT": "MEAT",
+        "total_hh": 2351,
+        "coupon_users": 429,
+        "coupon_pct": 18.2
+      },
+      {
+        "DEPARTMENT": "MEAT-PCKGD",
+        "total_hh": 2392,
+        "coupon_users": 432,
+        "coupon_pct": 18.1
+      },
+      {
+        "DEPARTMENT": "GROCERY",
+        "total_hh": 2500,
+        "coupon_users": 434,
+        "coupon_pct": 17.4
+      }
+    ],
+    "spend_trajectory": [
+      {
+        "period": "early",
+        "weeks": "1-34",
+        "segment": "Soup Buyer",
+        "avg_spend": 3.01
+      },
+      {
+        "period": "early",
+        "weeks": "1-34",
+        "segment": "Non-Soup Buyer",
+        "avg_spend": 3.094
+      },
+      {
+        "period": "mid",
+        "weeks": "35-68",
+        "segment": "Soup Buyer",
+        "avg_spend": 3.096
+      },
+      {
+        "period": "mid",
+        "weeks": "35-68",
+        "segment": "Non-Soup Buyer",
+        "avg_spend": 3.287
+      },
+      {
+        "period": "late",
+        "weeks": "69-102",
+        "segment": "Soup Buyer",
+        "avg_spend": 3.152
+      },
+      {
+        "period": "late",
+        "weeks": "69-102",
+        "segment": "Non-Soup Buyer",
+        "avg_spend": 3.357
+      }
+    ]
   }
 }
