@@ -86,7 +86,7 @@ export default function Dashboard() {
     setPitchLoading(true);
     setError("");
     try {
-      const response = await fetch(apiUrl("/api/generate-pitch", {
+      const response = await fetch(apiUrl("/api/generate-pitch"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ city: weather.city.name, weatherData: weather })
