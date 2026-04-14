@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import Groq from "groq-sdk";
 import fs from "node:fs";
 import path from "node:path";
+import cors from "cors";
 
 type City = {
   name: string;
@@ -125,6 +126,7 @@ const listPitches = db.prepare(`
 
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "https://cpg-insight-engine.onrender.com" }));
 
 function readUnifiedSignal(): Record<string, unknown> | null {
   try {
