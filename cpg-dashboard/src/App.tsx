@@ -3,11 +3,17 @@ import { useHashLocation } from "wouter/use-hash-location";
 import Dashboard from "./pages/Dashboard";
 import BasketAnalysis from "./pages/BasketAnalysis";
 import PitchHistory from "./pages/PitchHistory";
+import PromoAttribution from "./pages/PromoAttribution";
+import PriceElasticity from "./pages/PriceElasticity";
+import DemographicSegments from "./pages/DemographicSegments";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/basket", label: "Basket Analysis" },
-  { href: "/history", label: "Pitch History" }
+  { href: "/history", label: "Pitch History" },
+  { href: "/promo", label: "Promo Attribution" },
+  { href: "/elasticity", label: "Price Elasticity" },
+  { href: "/demographics", label: "Demographics" }
 ];
 
 export default function App() {
@@ -42,6 +48,9 @@ export default function App() {
           <Route path="/" component={Dashboard} />
           <Route path="/basket" component={BasketAnalysis} />
           <Route path="/history" component={PitchHistory} />
+          <Route path="/promo" component={PromoAttribution} />
+          <Route path="/elasticity" component={PriceElasticity} />
+          <Route path="/demographics" component={DemographicSegments} />
         </main>
       </div>
     </Router>

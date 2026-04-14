@@ -1,7 +1,8 @@
 import express from "express";
-import cors from "cors";
 import Database from "better-sqlite3";
 import Groq from "groq-sdk";
+import fs from "node:fs";
+import path from "node:path";
 
 type City = {
   name: string;
@@ -23,6 +24,7 @@ type ForecastDay = {
 const PORT = 4000;
 const WEATHER_THRESHOLD = 12;
 const DB_PATH = "cpg.db";
+const UNIFIED_SIGNAL_PATH = path.join(process.cwd(), "..", "output", "unified_signal.json");
 
 const cities: City[] = [
   { name: "Mississauga", lat: 43.589, lon: -79.6441 },
@@ -122,8 +124,17 @@ const listPitches = db.prepare(`
 `);
 
 const app = express();
-app.use(cors({ origin: "https://cpg-insight-engine.onrender.com" }));
 app.use(express.json());
+
+function readUnifiedSignal(): Record<string, unknown> | null {
+  try {
+    if (!fs.existsSync(UNIFIED_SIGNAL_PATH)) return null;
+    const raw = fs.readFileSync(UNIFIED_SIGNAL_PATH, "utf8");
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
 
 function getCityByName(name?: string): City {
   const normalized = (name ?? "Mississauga").trim().toLowerCase();
@@ -213,9 +224,45 @@ function buildPitchPrompt(city: string, weatherData: { forecast: ForecastDay[]; 
     return `${day.date}: ${day.weatherLabel}, ${day.tempMin}C to ${day.tempMax}C, precip ${day.precipitationMm}mm`;
   });
 
-  return `
-You are a senior retail analytics consultant preparing a proactive CPG pitch.
+  const unified = readUnifiedSignal();
+  const basket = unified?.basket_analysis as Record<string, unknown> | undefined;
+  const soup = (basket?.soup_companions as Array<{ product?: string; pct_of_soup_baskets?: number }> | undefined) ?? [];
+  const soupLines = soup
+    .slice(0, 6)
+    .map((s) => `- ${s.product ?? "?"}: ${s.pct_of_soup_baskets ?? "?"}% of soup baskets`)
+    .join("\n");
 
+  const cross = (basket?.top_cross_dept_pairs as Array<{ pair?: string; lift?: number }> | undefined) ?? [];
+  const crossLines = cross
+    .slice(0, 4)
+    .map((c) => `- ${c.pair ?? "?"}: ${c.lift ?? "?"}x lift`)
+    .join("\n");
+
+  const promo = unified?.promo_attribution as Record<string, unknown> | undefined;
+  const promoCats = (promo?.best_tactic_by_category as unknown[])?.length ?? 0;
+  const bestTier = (promo?.best_store_tier_for_activation as string) ?? "n/a";
+
+  const el = unified?.price_elasticity as Record<string, unknown> | undefined;
+  const elasticN = ((el?.most_elastic_categories as unknown[]) ?? []).length;
+
+  const demo = unified?.demographics as Record<string, unknown> | undefined;
+  const topSeg = demo?.top_soup_buyer_segment as Record<string, unknown> | undefined;
+  const demoLine = topSeg
+    ? `Top soup-heavy segment: ${topSeg.age_group ?? "?"} / ${topSeg.income_group ?? "?"} (soup penetration ${topSeg.soup_penetration_pct ?? "?"}%).`
+    : "Demographic soup segment: not available in this build (rerun segmentation when CJ tables are wired).";
+
+  const datasets = ((unified?.meta as Record<string, unknown> | undefined)?.datasets_used as string[] | undefined) ?? [];
+
+  return `
+You are a senior retail analytics consultant preparing a proactive CPG pitch for a major Canadian grocery retailer.
+
+AUDIENCE + FORMAT
+-------------------
+Write for a busy brand manager (90 seconds to read). Short paragraphs only (no bullet lists in the final pitch body),
+but you may use bullets while thinking. Max ~320 words.
+
+RETAIL CONTEXT
+--------------
 City: ${city}
 3-day average temperature: ${weatherData.trigger.avgTemp}C
 Wet days in trigger window: ${weatherData.trigger.wetDays}
@@ -225,13 +272,42 @@ Trigger fired: ${weatherData.trigger.triggered ? "Yes" : "No"}
 Forecast summary:
 ${lines.join("\n")}
 
-Insight:
-- 48.0% of soup baskets also include fluid milk.
-- 29.0% of soup baskets also include bananas.
-- 25.6% of soup baskets also include white bread.
-- A related cross-department pattern shows Hot Dog Buns + Premium Beef at 14.6x lift.
+DATA SIGNALS (use only what is supported by the facts below)
+-----------------------------------------------------------
+Datasets referenced in unified signal bundle:
+${datasets.length ? datasets.map((d) => `- ${d}`).join("\n") : "- (unified signal file missing — keep claims conservative)"}
 
-Write a concise, executive-ready pitch to a grocery retail or CPG brand manager explaining why a soup + milk bundle or placement activation should run this week. Mention the weather context, the soup + milk co-basket rate, one specific in-store or digital action, and a concrete call to action.
+Soup basket companions (co-purchase penetration among soup baskets):
+${soupLines || "- (not available)"}
+
+Cross-department pair examples (lift):
+${crossLines || "- (not available)"}
+
+Promo attribution summary (BATF / Carbo where loaded):
+- Categories with inferred best tactic: ${promoCats}
+- Best store tier for activation: ${bestTier}
+
+Price elasticity summary:
+- Elastic categories available: ${elasticN}
+
+Demographics summary:
+- ${demoLine}
+
+CORE STORY (must appear clearly)
+--------------------------------
+Explain why a soup + fluid milk bundle / adjacency / digital coupon stack is credible this week, anchored on cold/wet demand
+and the strongest soup companion penetration (fluid milk).
+
+DELIVERABLES (must include all)
+---------------------------------
+1) Weather-led hook (1 sentence)
+2) Quantified basket insight (soup + milk + 1–2 supporting companions)
+3) Retail activation plan (choose one: end-cap, aisle interrupt, app offer, loyalty coupon stack) with timing THIS WEEK
+4) Measurement plan (what KPIs you will track for 14 days)
+5) Risks + mitigations (stock-out, margin, category conflict)
+6) Clear CTA (what decision you need now)
+
+Tone: confident, precise, no hype without numbers.
 `.trim();
 }
 
@@ -252,6 +328,33 @@ app.get("/api/weather", async (req, res) => {
 
 app.get("/api/basket-data", (_req, res) => {
   res.json(basketData);
+});
+
+app.get("/api/signals/unified", (_req, res) => {
+  const unified = readUnifiedSignal();
+  if (!unified) {
+    res.status(404).json({ error: "unified_signal.json not found", path: UNIFIED_SIGNAL_PATH });
+    return;
+  }
+  res.json(unified);
+});
+
+app.get("/api/signals/promo", (_req, res) => {
+  const unified = readUnifiedSignal();
+  const promo = (unified?.promo_attribution as Record<string, unknown>) ?? {};
+  res.json(promo);
+});
+
+app.get("/api/signals/price-elasticity", (_req, res) => {
+  const unified = readUnifiedSignal();
+  const elasticity = (unified?.price_elasticity as Record<string, unknown>) ?? {};
+  res.json(elasticity);
+});
+
+app.get("/api/signals/demographics", (_req, res) => {
+  const unified = readUnifiedSignal();
+  const demographics = (unified?.demographics as Record<string, unknown>) ?? {};
+  res.json(demographics);
 });
 
 app.get("/api/pitch-history", (_req, res) => {

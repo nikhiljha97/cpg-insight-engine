@@ -269,6 +269,20 @@ select {
   line-height: 1.6;
 }
 
+.json-panel {
+  margin: 0;
+  max-height: 70vh;
+  overflow: auto;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #dbe7ff;
+  background: #0f1522;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
 .pitch-output {
   min-height: 220px;
 }
