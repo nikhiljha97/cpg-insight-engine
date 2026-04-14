@@ -1,0 +1,81 @@
+# ============================================================
+# GitHub Actions — Daily Weather Trigger & Pitch Generator
+# Runs every weekday at 8:00 AM Eastern (13:00 UTC)
+# Uses 2,000 free minutes/month (this job ~2 min/run = ~44 runs free)
+# ============================================================
+
+name: Daily CPG Weather Trigger
+
+on:
+  schedule:
+    # 13:00 UTC = 8:00 AM ET (EST) / 9:00 AM ET (EDT)
+    - cron: "0 13 * * 1-5"    # Mon–Fri only
+
+  # Allow manual run from GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  run-trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # 1. Check out your repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3. Install dependencies
+      - name: Install Python dependencies
+        run: |
+          pip install --quiet duckdb pandas requests groq google-generativeai
+
+      # 4. Download DuckDB file from GitHub Release (or cache it)
+      #    OPTION A: If your retail.duckdb is committed to the repo (<100MB)
+      #              → comment this step out and it will just use the file
+      #    OPTION B: If it's too large, host it as a GitHub Release asset
+      #              and uncomment the download step below.
+      #
+      # - name: Download retail.duckdb
+      #   run: |
+      #     wget -q -O retail.duckdb \
+      #       https://github.com/${{ github.repository }}/releases/download/v1.0/retail.duckdb
+
+      # 5. Run weather trigger
+      - name: Run weather trigger
+        run: python 04_weather_trigger.py
+
+      # 6. Run pitch generator (only if trigger fired, i.e. payload exists)
+      - name: Generate CPG pitch
+        if: ${{ hashFiles('output/trigger_payload.json') != '' }}
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # uncomment to use Gemini instead
+        run: python 05_pitch_generator.py
+
+      # 7. Upload pitch as a GitHub Actions artifact (downloadable for 30 days)
+      - name: Upload pitch artifact
+        if: ${{ hashFiles('output/cpg_pitch_*.txt') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpg-pitch-${{ github.run_id }}
+          path: output/cpg_pitch_*.txt
+          retention-days: 30
+
+      # 8. (Optional) Commit pitch back to repo
+      #    Uncomment to automatically push pitches into an /output folder
+      #    in your repo for a historical log.
+      #
+      # - name: Commit pitch to repo
+      #   if: ${{ hashFiles('output/cpg_pitch_*.txt') != '' }}
+      #   run: |
+      #     git config user.email "actions@github.com"
+      #     git config user.name  "GitHub Actions"
+      #     git add output/cpg_pitch_*.txt
+      #     git commit -m "Auto: CPG pitch for $(date +%Y-%m-%d)" || echo "Nothing to commit"
+      #     git push
