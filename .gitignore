@@ -1,0 +1,17 @@
+node_modules/
+cpg-dashboard/node_modules/
+*.duckdb
+*.duckdb.wal
+*.db
+__pycache__/
+*.pyc
+.env
+transaction_data.csv
+causal_data.csv
+product.csv
+hh_demographic.csv
+campaign_table.csv
+coupon.csv
+coupon_redempt.csv
+campaign_desc.csv
+output/
