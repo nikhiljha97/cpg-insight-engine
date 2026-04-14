@@ -1,4 +1,5 @@
 import { apiUrl } from "../api";
+import CategorySignals from "./CategorySignals";
 import { useEffect, useMemo, useState, useRef } from "react";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -1246,6 +1247,14 @@ export default function Dashboard() {
             </div>
           ) : null}
         </div>
+
+        {/* ── Weather-Driven Category Signals ─────────────────── */}
+        {weather && (
+          <CategorySignals
+            avgTemp={clientTrigger?.avgTemp ?? weather.trigger.avgTemp}
+            threshold={threshold}
+          />
+        )}
 
         {/* ── Generate Pitch ────────────────────────────────────────────── */}
         <div className="dash-card">

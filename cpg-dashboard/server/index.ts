@@ -209,10 +209,47 @@ async function fetchWeather(city: City) {
   return { forecast: forecastWithWindow, trigger };
 }
 
+// ── Category + companion helpers ─────────────────────────────
+
+function getCategoryFocus(avgTemp: number): string {
+  if (avgTemp < 0)        return "Canned Soup, Hot Beverages, Pasta & Sauce, Frozen Pizza, Oatmeal";
+  if (avgTemp < 5)        return "Canned Soup, Pasta & Sauce, Cold Cereal, Hot Beverages";
+  if (avgTemp < 10)       return "Canned Soup, Bag Snacks, Frozen Pizza";
+  if (avgTemp < 15)       return "Canned Soup, Pasta & Sauce, Cold Cereal";
+  if (avgTemp < 20)       return "Fresh Produce, Bag Snacks (everyday value)";
+  if (avgTemp < 25)       return "Soft Drinks, Ice Cream, BBQ & Grilling Meats, Bag Snacks";
+  return                         "Soft Drinks, Ice Cream, BBQ & Grilling Meats, Fresh Produce & Salads";
+}
+
+function getHeroPairings(avgTemp: number): string {
+  if (avgTemp < 12) {
+    return [
+      "- Soup + Fluid Milk: 48% co-purchase rate",
+      "- Pasta + Sauce: 73% co-purchase rate"
+    ].join("\n");
+  }
+  if (avgTemp >= 20) {
+    return [
+      "- Soft Drinks + Chips: 44% co-purchase rate",
+      "- BBQ Meats + Hot Dog Buns: 58% co-purchase rate",
+      "- Ice Cream + Cones: 51% co-purchase rate"
+    ].join("\n");
+  }
+  // Mild (12–20°C)
+  return "- Produce + Dressing: 42% co-purchase rate";
+}
+
+function getSeasonLabel(avgTemp: number): string {
+  if (avgTemp < 12) return "cold-weather comfort food demand window";
+  if (avgTemp >= 20) return "warm-weather summer activation opportunity";
+  return "shoulder-season everyday value opportunity";
+}
+
 function buildPitchPrompt(
   city: string,
   weatherData: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> },
   options?: {
+    avgTemp?: number;
     threshold?: number;
     trafficDisruption?: string;
     ontarioRetailTrend?: string;
@@ -248,6 +285,13 @@ function buildPitchPrompt(
   const traffic = options?.trafficDisruption ?? "Unknown";
   const retailTrend = options?.ontarioRetailTrend ?? null;
 
+  // avgTemp: prefer explicit option, then weatherData trigger, then threshold fallback
+  const avgTemp = options?.avgTemp ?? weatherData.trigger.avgTemp;
+
+  const categoryFocus = getCategoryFocus(avgTemp);
+  const heroPairings = getHeroPairings(avgTemp);
+  const seasonLabel = getSeasonLabel(avgTemp);
+
   const trafficLine = traffic === "High"
     ? "GTA traffic disruption is HIGH today — highlight the appeal of staying warm indoors and convenience delivery."
     : traffic === "Moderate"
@@ -274,9 +318,17 @@ City: ${city}
 Custom trigger threshold set by user: ${threshold}C
 Trigger fired: ${weatherData.trigger.triggered ? "Yes" : "No"}
 Wet days in trigger window: ${weatherData.trigger.wetDays}
+Season window: ${seasonLabel}
 
 Forecast summary:
 ${lines.join("\n")}
+
+CATEGORY FOCUS (based on ${avgTemp}C avg temp)
+----------------------------------------------
+Priority categories this week: ${categoryFocus}
+
+Hero companion pairings:
+${heroPairings}
 
 LIVE MARKET SIGNALS
 -------------------
@@ -296,8 +348,8 @@ Demographics: ${demoLine}
 
 DELIVERABLES
 ---------------------------------
-1) Weather-led hook (1 sentence)
-2) Quantified basket insight (soup + milk + 1–2 companions)
+1) Weather-led hook (1 sentence) — frame as a ${seasonLabel}
+2) Quantified basket insight (lead with the priority categories and hero pairings above)
 3) Retail activation plan with timing THIS WEEK
 4) Measurement plan (14-day KPIs)
 5) Risks + mitigations
@@ -373,7 +425,9 @@ app.post("/api/generate-pitch", async (req, res) => {
       return;
     }
 
-    const prompt = buildPitchPrompt(city, weatherData, { threshold, trafficDisruption, ontarioRetailTrend });
+    const avgTemp = (weatherData as any)?.trigger?.avgTemp ?? threshold ?? 12;
+
+    const prompt = buildPitchPrompt(city, weatherData, { avgTemp, threshold, trafficDisruption, ontarioRetailTrend });
 
     if (!process.env.GROQ_API_KEY) {
       res.status(503).json({ error: "GROQ_API_KEY is not set", prompt });
