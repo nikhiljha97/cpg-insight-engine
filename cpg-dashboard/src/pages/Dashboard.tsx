@@ -1,6 +1,7 @@
 import { apiUrl } from "../api";
 import CategorySignals from "./CategorySignals";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useWeatherContext } from "./WeatherContext";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -42,16 +43,30 @@ type TrafficEvent = {
 
 type DisruptionLevel = "Low" | "Moderate" | "High";
 
-/* ─── Demand Curve Config (Dunnhumby) ───────────────────────────────────── */
+/* ─── Demand Curve Config (Dunnhumby + extended categories) ─────────────── */
 
 const DEMAND_BANDS = [
-  { label: "> 20°C", min: 20, max: Infinity, uplift: -15 },
-  { label: "15–20°C", min: 15, max: 20, uplift: 0 },
-  { label: "10–15°C", min: 10, max: 15, uplift: 18 },
-  { label: "5–10°C", min: 5, max: 10, uplift: 34 },
-  { label: "0–5°C", min: 0, max: 5, uplift: 51 },
-  { label: "< 0°C", min: -Infinity, max: 0, uplift: 67 },
+  { label: "> 20°C",  min: 20,        max: Infinity, uplift: -15 },
+  { label: "15–20°C", min: 15,        max: 20,       uplift: 0   },
+  { label: "10–15°C", min: 10,        max: 15,       uplift: 18  },
+  { label: "5–10°C",  min: 5,         max: 10,       uplift: 34  },
+  { label: "0–5°C",   min: 0,         max: 5,        uplift: 51  },
+  { label: "< 0°C",   min: -Infinity, max: 0,        uplift: 67  },
 ];
+
+// Demand curves per category (uplift % by temp band, ordered > 20°C → < 0°C)
+const CATEGORY_DEMAND: Record<string, number[]> = {
+  "Canned Soup":      [-15,   0,  18,  34,  51,  67],
+  "Hot Beverages":    [-20,  -5,  15,  30,  48,  60],
+  "Pasta & Sauce":    [-10,   2,  14,  28,  40,  52],
+  "Frozen Pizza":     [ -8,   4,  16,  26,  35,  44],
+  "Bag Snacks":       [ 10,  12,   8,   4,  -2,  -6],
+  "Cold Cereal":      [ -5,   2,   8,  14,  20,  22],
+  "Soft Drinks":      [ 25,  18,   5,  -5, -12, -15],
+  "Ice Cream":        [ 45,  30,   5, -10, -20, -25],
+  "BBQ Meats":        [ 38,  22,   4,  -8, -18, -22],
+};
+const CATEGORY_KEYS = Object.keys(CATEGORY_DEMAND);
 
 function getActiveBand(avgTemp: number) {
   return DEMAND_BANDS.findIndex(
@@ -66,7 +81,6 @@ function getDisruptionLevel(count: number): DisruptionLevel {
 }
 
 function formatStatCanMonth(refPer: string): string {
-  // refPer looks like "2024-11-01" → "Nov 2024"
   try {
     const d = new Date(refPer + "T12:00:00Z");
     return d.toLocaleDateString("en-CA", { month: "short", year: "numeric", timeZone: "UTC" });
@@ -92,12 +106,66 @@ function Skeleton({ w, h, radius = 6 }: { w: string; h: number; radius?: number 
   );
 }
 
+/* ─── Tooltip ────────────────────────────────────────────────────────────── */
+
+function Tooltip({ text }: { text: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span style={{ position: "relative", display: "inline-block", marginLeft: 6 }}>
+      <span
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          background: "#334155",
+          color: "#94a3b8",
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: "help",
+          lineHeight: 1,
+        }}
+      >
+        ?
+      </span>
+      {visible && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#0f172a",
+            border: "1px solid #334155",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 13,
+            color: "#cbd5e1",
+            lineHeight: 1.6,
+            width: 280,
+            zIndex: 100,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+          }}
+        >
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
+
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 
 export default function Dashboard() {
+  /* Global context — share city + temp with other tabs */
+  const { selectedCity, setSelectedCity, setAvgTemp, threshold, setThreshold } = useWeatherContext();
+
   /* State */
   const [cities, setCities] = useState<City[]>([]);
-  const [selectedCity, setSelectedCity] = useState("Mississauga");
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pitch, setPitch] = useState("");
@@ -105,8 +173,8 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Threshold slider (°C)
-  const [threshold, setThreshold] = useState(12);
+  // Demand category selector
+  const [demandCategory, setDemandCategory] = useState("Canned Soup");
 
   // StatCan retail
   const [retailData, setRetailData] = useState<RetailDataPoint[]>([]);
@@ -124,9 +192,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetch(apiUrl("/api/cities"))
       .then((r) => r.json())
-      .then((data) => {
-        setCities(data);
-      })
+      .then((data) => { setCities(data); })
       .catch(() => setError("Failed to load cities."));
   }, []);
 
@@ -184,7 +250,6 @@ export default function Dashboard() {
         return r.json();
       })
       .then((data: { incidentCount: number; disruptionLevel: string; topEvents: Array<{ description: string; county: string; road: string }> }) => {
-        // Convert proxy response to TrafficEvent array format
         const events: TrafficEvent[] = (data.topEvents ?? []).map(e => ({
           Description: e.description,
           County: e.county,
@@ -202,15 +267,21 @@ export default function Dashboard() {
   /* ── Client-side trigger re-evaluation ───────────────────────────────── */
   const clientTrigger = useMemo(() => {
     if (!weather) return null;
-    // days 2-4 (indices 1-3, 0-based)
     const window = weather.forecast.slice(1, 4);
     if (!window.length) return null;
-    const avgTemp =
+    const avgTempVal =
       window.reduce((s, d) => s + d.tempAvg, 0) / window.length;
     const wetDays = window.filter((d) => d.precipitationMm > 0).length;
-    const triggered = avgTemp < threshold && wetDays > 0;
-    return { triggered, avgTemp, wetDays, threshold };
+    const triggered = avgTempVal < threshold && wetDays > 0;
+    return { triggered, avgTemp: avgTempVal, wetDays, threshold };
   }, [weather, threshold]);
+
+  /* ── Push avgTemp to context so other pages can use it ──────────────── */
+  useEffect(() => {
+    if (clientTrigger) {
+      setAvgTemp(clientTrigger.avgTemp);
+    }
+  }, [clientTrigger, setAvgTemp]);
 
   /* ── KPI values ───────────────────────────────────────────────────────── */
   const kpi = useMemo(() => {
@@ -237,8 +308,9 @@ export default function Dashboard() {
     return getActiveBand(clientTrigger.avgTemp);
   }, [clientTrigger]);
 
-  /* ── Slider threshold marker position (for demand chart) ─────────────── */
-  const maxUplift = 67;
+  /* ── Selected category uplift values ────────────────────────────────── */
+  const categoryUplift = CATEGORY_DEMAND[demandCategory] ?? CATEGORY_DEMAND["Canned Soup"];
+  const maxUplift = Math.max(...Object.values(CATEGORY_DEMAND).flat().map(Math.abs));
 
   /* ── Generate pitch ───────────────────────────────────────────────────── */
   async function generatePitch() {
@@ -283,7 +355,6 @@ export default function Dashboard() {
   /* ── Helpers ──────────────────────────────────────────────────────────── */
   function triggerBadgeForDay(day: ForecastDay): boolean {
     if (!clientTrigger) return day.inTriggerWindow;
-    // A day is "in trigger window" if it's in days 2-4 and avgTemp < threshold
     const idx = weather?.forecast.indexOf(day) ?? -1;
     return idx >= 1 && idx <= 3 && clientTrigger.triggered;
   }
@@ -397,17 +468,9 @@ export default function Dashboard() {
           overflow-x: auto;
           padding-bottom: 4px;
         }
-        .forecast-strip::-webkit-scrollbar {
-          height: 4px;
-        }
-        .forecast-strip::-webkit-scrollbar-track {
-          background: #0f172a;
-          border-radius: 2px;
-        }
-        .forecast-strip::-webkit-scrollbar-thumb {
-          background: #334155;
-          border-radius: 2px;
-        }
+        .forecast-strip::-webkit-scrollbar { height: 4px; }
+        .forecast-strip::-webkit-scrollbar-track { background: #0f172a; border-radius: 2px; }
+        .forecast-strip::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
         .forecast-day {
           flex: 0 0 auto;
           min-width: 80px;
@@ -486,7 +549,7 @@ export default function Dashboard() {
           color: #94a3b8;
           border: 1px solid #334155;
         }
-        .city-select {
+        .city-select, .cat-select {
           background: #1e293b;
           border: 1px solid #334155;
           border-radius: 8px;
@@ -496,7 +559,7 @@ export default function Dashboard() {
           cursor: pointer;
           outline: none;
         }
-        .city-select:focus { border-color: #3b82f6; }
+        .city-select:focus, .cat-select:focus { border-color: #3b82f6; }
         .demand-bar-wrap {
           display: flex;
           flex-direction: column;
@@ -556,6 +619,16 @@ export default function Dashboard() {
           border-bottom: 1px solid #334155;
         }
         .retail-row:last-child { border-bottom: none; }
+        .slider-explain {
+          background: rgba(59,130,246,0.08);
+          border: 1px solid rgba(59,130,246,0.2);
+          border-radius: 8px;
+          padding: 10px 14px;
+          margin-top: 12px;
+          font-size: 13px;
+          color: #93c5fd;
+          line-height: 1.6;
+        }
       `}</style>
 
       <div
@@ -563,8 +636,7 @@ export default function Dashboard() {
           minHeight: "100vh",
           background: "transparent",
           color: "#f1f5f9",
-          fontFamily:
-            "'Inter', 'DM Sans', system-ui, -apple-system, sans-serif",
+          fontFamily: "'Inter', 'DM Sans', system-ui, -apple-system, sans-serif",
           fontSize: "15px",
           padding: "24px",
           boxSizing: "border-box",
@@ -598,10 +670,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <label
-              htmlFor="city-select"
-              style={{ fontSize: "13px", color: "#94a3b8" }}
-            >
+            <label htmlFor="city-select" style={{ fontSize: "13px", color: "#94a3b8" }}>
               City:
             </label>
             <select
@@ -640,7 +709,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── Threshold Slider ─────────────────────────────────────────── */}
+        {/* ── Cold-Weather Promotion Trigger Slider ────────────────────── */}
         <div className="dash-card" style={{ marginBottom: "20px" }}>
           <div
             style={{
@@ -650,9 +719,12 @@ export default function Dashboard() {
               marginBottom: "12px",
             }}
           >
-            <span className="section-title" style={{ margin: 0 }}>
-              Trigger Threshold
-            </span>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <span className="section-title" style={{ margin: 0 }}>
+                Cold-Weather Promotion Trigger
+              </span>
+              <Tooltip text="This slider sets the temperature cut-off for activating cold-weather promotions. If the 3-day forecast average drops below this value AND at least one wet/rainy day is expected, the system fires an alert and recommends promoting comfort food categories like soup, hot beverages, and pasta. Drag left to be more aggressive, right to be more conservative." />
+            </div>
             <span
               style={{
                 fontSize: "20px",
@@ -671,7 +743,7 @@ export default function Dashboard() {
             step={0.5}
             value={threshold}
             onChange={(e) => setThreshold(parseFloat(e.target.value))}
-            aria-label="Trigger threshold in degrees Celsius"
+            aria-label="Cold-weather promotion trigger temperature in degrees Celsius"
           />
           <div
             style={{
@@ -682,9 +754,9 @@ export default function Dashboard() {
               color: "#64748b",
             }}
           >
-            <span>0°C (freezing)</span>
-            <span>15°C (cool)</span>
-            <span>30°C (warm)</span>
+            <span>0°C — Very Cold</span>
+            <span>15°C — Cool</span>
+            <span>30°C — Warm</span>
           </div>
           {clientTrigger && (
             <p
@@ -694,24 +766,27 @@ export default function Dashboard() {
                 color: "#94a3b8",
               }}
             >
-              Window avg:{" "}
+              3-day forecast avg:{" "}
               <strong style={{ color: "#f1f5f9" }}>
                 {clientTrigger.avgTemp.toFixed(1)}°C
               </strong>{" "}
-              · Wet days:{" "}
+              · Rainy days:{" "}
               <strong style={{ color: "#f1f5f9" }}>
                 {clientTrigger.wetDays}
               </strong>{" "}
               ·{" "}
               {clientTrigger.triggered ? (
                 <span style={{ color: "#22d3ee", fontWeight: 600 }}>
-                  Trigger ACTIVE
+                  ✓ Promotion ACTIVE — cold &amp; wet forecast detected
                 </span>
               ) : (
-                <span style={{ color: "#64748b" }}>Not triggered</span>
+                <span style={{ color: "#64748b" }}>No promotion trigger — forecast too warm or dry</span>
               )}
             </p>
           )}
+          <div className="slider-explain">
+            <strong style={{ color: "#f1f5f9" }}>How it works:</strong> The forecast average for the next 3 days is compared to this threshold. If it is colder AND rainy, the system activates — highlighting soup, hot beverages, and comfort foods. All tabs (Promo, Elasticity, Demographics) will update to reflect this city and temperature context.
+          </div>
         </div>
 
         {/* ── KPI Cards ────────────────────────────────────────────────── */}
@@ -733,7 +808,7 @@ export default function Dashboard() {
           ) : (
             <>
               <div className="kpi-card">
-                <span className="kpi-label">Trigger Status</span>
+                <span className="kpi-label">Promotion Status</span>
                 <span
                   className="kpi-value"
                   style={{ color: kpi.triggered ? "#22d3ee" : "#64748b" }}
@@ -751,7 +826,7 @@ export default function Dashboard() {
               </div>
 
               <div className="kpi-card">
-                <span className="kpi-label">Window Avg Temp</span>
+                <span className="kpi-label">3-Day Avg Temp</span>
                 <span
                   className="kpi-value"
                   style={{
@@ -761,18 +836,13 @@ export default function Dashboard() {
                 >
                   {kpi.avgTemp.toFixed(1)}°C
                 </span>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    color: "#64748b",
-                  }}
-                >
-                  Threshold: {threshold}°C
+                <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  Trigger at: {threshold}°C
                 </span>
               </div>
 
               <div className="kpi-card">
-                <span className="kpi-label">Wet Days (window)</span>
+                <span className="kpi-label">Rainy Days</span>
                 <span
                   className="kpi-value"
                   style={{ color: kpi.wetDays > 0 ? "#34d399" : "#64748b" }}
@@ -797,38 +867,49 @@ export default function Dashboard() {
 
         {/* ── Demand Sensitivity Chart ──────────────────────────────────── */}
         <div className="dash-card" style={{ marginBottom: "20px" }}>
-          <p className="section-title">Demand Sensitivity</p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <p className="section-title" style={{ margin: 0 }}>Demand Sensitivity</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: 13, color: "#94a3b8" }}>Category:</label>
+              <select
+                className="cat-select"
+                value={demandCategory}
+                onChange={(e) => setDemandCategory(e.target.value)}
+              >
+                {CATEGORY_KEYS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <p
             style={{
-              margin: "-8px 0 14px",
+              margin: "0 0 14px",
               fontSize: "13px",
               color: "#64748b",
             }}
           >
-            Estimated soup demand uplift vs. baseline (Dunnhumby)
+            Estimated demand uplift vs. baseline by temperature band · Dunnhumby &amp; internal estimates
           </p>
           <div className="demand-bar-wrap">
             {DEMAND_BANDS.map((band, i) => {
               const isActive = i === activeBandIdx;
-              const isPositive = band.uplift > 0;
-              const isZero = band.uplift === 0;
-              const isNegative = band.uplift < 0;
-              // bar width: map uplift to % of track
-              // range: -15 to 67 → normalize to 0-100%
+              const uplift = categoryUplift[i] ?? 0;
+              const isPositive = uplift > 0;
+              const isZero = uplift === 0;
+              const isNegative = uplift < 0;
               const pct =
                 isNegative
-                  ? (Math.abs(band.uplift) / 15) * 30
+                  ? (Math.abs(uplift) / maxUplift) * 100
                   : isZero
                   ? 2
-                  : (band.uplift / maxUplift) * 100;
+                  : (uplift / maxUplift) * 100;
 
               return (
                 <div
                   key={band.label}
                   className={`demand-row ${isActive ? "demand-bar-active" : ""}`}
-                  style={{
-                    opacity: isActive ? 1 : 0.65,
-                  }}
+                  style={{ opacity: isActive ? 1 : 0.65 }}
                 >
                   <span
                     className="demand-label"
@@ -846,9 +927,7 @@ export default function Dashboard() {
                       }`}
                       style={{ width: `${pct}%` }}
                     />
-                    {/* Threshold marker overlay */}
                     {isActive && (() => {
-                      // show a vertical line at the threshold's relative position within this band
                       const bandRange = band.max === Infinity
                         ? 10
                         : band.min === -Infinity
@@ -871,7 +950,7 @@ export default function Dashboard() {
                             borderRadius: 1,
                             opacity: 0.85,
                           }}
-                          title={`Threshold: ${threshold}°C`}
+                          title={`Trigger threshold: ${threshold}°C`}
                         />
                       );
                     })()}
@@ -886,8 +965,8 @@ export default function Dashboard() {
                         : "#64748b",
                     }}
                   >
-                    {band.uplift > 0 ? "+" : ""}
-                    {band.uplift}%
+                    {uplift > 0 ? "+" : ""}
+                    {uplift}%
                   </span>
                   {isActive && (
                     <span
@@ -923,7 +1002,7 @@ export default function Dashboard() {
                 marginRight: 5,
               }}
             />
-            Yellow marker = threshold ({threshold}°C) within current band
+            Yellow marker = your trigger threshold ({threshold}°C) position within the active band
           </p>
         </div>
 
@@ -938,7 +1017,7 @@ export default function Dashboard() {
         >
           {/* StatCan Retail */}
           <div className="dash-card">
-            <p className="section-title">Ontario Retail Index</p>
+            <p className="section-title">Ontario Retail Sales</p>
             <p
               style={{
                 margin: "-8px 0 14px",
@@ -946,7 +1025,7 @@ export default function Dashboard() {
                 color: "#64748b",
               }}
             >
-              Monthly grocery & food/bev sales · Statistics Canada v32551248
+              Monthly total retail sales · Statistics Canada Table 20-10-0056-01 · Seasonally adjusted
             </p>
             {retailLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1010,7 +1089,7 @@ export default function Dashboard() {
                               color: isLatest ? "#22d3ee" : "#94a3b8",
                             }}
                           >
-                            ${(pt.value / 1000).toFixed(0)}M
+                            ${(pt.value / 1_000_000).toFixed(1)}B
                           </span>
                           {isLatest && retailTrend && (
                             <span
@@ -1034,7 +1113,7 @@ export default function Dashboard() {
                               }}
                             >
                               {diff >= 0 ? "+" : ""}
-                              {(diff / 1000).toFixed(0)}M
+                              {(diff / 1_000_000).toFixed(1)}B
                             </span>
                           )}
                         </div>
