@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
+import { useWeatherContext } from "./WeatherContext";
 
 interface Segment {
   age_group: string;
@@ -75,7 +76,22 @@ function PenetrationBar({ pct }: { pct: number }) {
   );
 }
 
+// ── Weather-context helpers ───────────────────────────────────
+
+function getDemoWeatherLabel(avgTemp: number, threshold: number): { label: string; color: string; tip: string } {
+  if (avgTemp < threshold) {
+    if (avgTemp < 5)  return { label: "Freezing Cold",       color: "#38bdf8", tip: "Cold-weather comfort buyers are most active. Family & mid-income segments respond best to soup + warmth bundles." };
+    if (avgTemp < 12) return { label: "Cold Weather Active", color: "#22d3ee", tip: "Trigger fired. 45–54 age group at mid-income levels leads soup penetration — prioritize loyalty mailers for this cohort." };
+    return                     { label: "Cool",              color: "#7dd3fc", tip: "Mild cold. Families with kids show elevated soup sensitivity — good moment for kids-cereal + soup bundle." };
+  }
+  if (avgTemp < 20) return     { label: "Mild / Shoulder",   color: "#86efac", tip: "Shoulder season. Shift promo focus toward fresh produce and everyday-value segments across all age bands." };
+  if (avgTemp < 25) return     { label: "Warm",              color: "#fde047", tip: "Warm weather. Younger segments (18–34) drive soft drinks and ice cream. High-income 35–54 lead BBQ & premium produce." };
+  return                       { label: "Hot — Summer Mode", color: "#fb923c", tip: "Summer activation. College-age and young families dominate outdoor + snacking categories. Rotate demo targeting accordingly." };
+}
+
 export default function DemographicSegments() {
+  const { selectedCity, avgTemp, threshold } = useWeatherContext();
+
   const [data, setData] = useState<DemoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -101,11 +117,13 @@ export default function DemographicSegments() {
   }, []);
 
   if (loading) return <div style={{ padding: 40, color: "#94a3b8", fontSize: 16 }}>Loading demographic signals…</div>;
-  if (error) return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
-  if (!data) return null;
+  if (error)   return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
+  if (!data)   return null;
+
+  const wx = getDemoWeatherLabel(avgTemp, threshold);
 
   const top = data.top_soup_buyer_segment;
-  const allAges = [...new Set(data.all_segments.map(s => s.age_group))].sort();
+  const allAges    = [...new Set(data.all_segments.map(s => s.age_group))].sort();
   const allIncomes = [...new Set(data.all_segments.map(s => s.income_group))].sort();
   const periods = ["early", "mid", "late"];
   const periodLabels: Record<string, string> = { early: "Wks 1–34", mid: "Wks 35–68", late: "Wks 69–102" };
@@ -118,7 +136,7 @@ export default function DemographicSegments() {
       return segSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
     });
 
-  const soupSpend = (p: string) => data.spend_trajectory.find(r => r.period === p && r.segment === "Soup Buyer")?.avg_spend ?? 0;
+  const soupSpend    = (p: string) => data.spend_trajectory.find(r => r.period === p && r.segment === "Soup Buyer")?.avg_spend    ?? 0;
   const nonSoupSpend = (p: string) => data.spend_trajectory.find(r => r.period === p && r.segment === "Non-Soup Buyer")?.avg_spend ?? 0;
 
   const selectStyle: React.CSSProperties = { fontSize: 14, padding: "8px 14px", borderRadius: 8, border: "1px solid #475569", background: "#0f172a", color: "#e2e8f0", cursor: "pointer" };
@@ -127,6 +145,43 @@ export default function DemographicSegments() {
     <div style={S.page}>
       <p style={S.eyebrow}>Signals</p>
       <h2 style={S.h2}>Demographic Segments</h2>
+
+      {/* ── Live context banner ───────────────────────────── */}
+      <div style={{
+        background: "#0f172a",
+        border: `1px solid ${wx.color}`,
+        borderLeft: `5px solid ${wx.color}`,
+        borderRadius: 12,
+        padding: "18px 22px",
+        marginBottom: 20,
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 16,
+        flexWrap: "wrap" as const,
+      }}>
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, flex: "0 0 auto" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "#64748b" }}>
+            Live Context
+          </span>
+          <span style={{ fontSize: 22, fontWeight: 900, color: wx.color, lineHeight: 1 }}>
+            {selectedCity}
+          </span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: wx.color }}>
+            {avgTemp}°C · {wx.label}
+          </span>
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: "#64748b", marginBottom: 6 }}>
+            Demo Targeting Tip
+          </div>
+          <div style={{ fontSize: 15, color: "#e2e8f0", lineHeight: 1.65 }}>
+            {wx.tip}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "#475569" }}>
+            Trigger set at {threshold}°C — change city or temperature on the Dashboard tab to update these insights.
+          </div>
+        </div>
+      </div>
 
       {/* Hero card */}
       <div style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%)", borderRadius: 14, padding: "28px 32px", marginBottom: 20, border: "1px solid #2563eb" }}>
@@ -186,11 +241,11 @@ export default function DemographicSegments() {
             <thead>
               <tr>
                 {([
-                  ["age_group", "Age Group"],
-                  ["income_group", "Income"],
-                  ["has_kids", "Has Kids"],
-                  ["homeowner", "Homeowner"],
-                  ["soup_buyers", "Soup Buyers"],
+                  ["age_group",            "Age Group"],
+                  ["income_group",         "Income"],
+                  ["has_kids",             "Has Kids"],
+                  ["homeowner",            "Homeowner"],
+                  ["soup_buyers",          "Soup Buyers"],
                   ["soup_penetration_pct", "Penetration"],
                 ] as [SegSortKey, string][]).map(([k, label]) => (
                   <th key={k} style={S.th} onClick={() => setSegSort(prev => ({ key: k, dir: prev.key === k && prev.dir === "desc" ? "asc" : "desc" }))}>
