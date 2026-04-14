@@ -2,6 +2,7 @@ import { apiUrl } from "../api";
 import CategorySignals from "./CategorySignals";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useWeatherContext } from "./WeatherContext";
+import LastUpdated from "./LastUpdated";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -165,6 +166,7 @@ export default function Dashboard() {
   const { selectedCity, setSelectedCity, setAvgTemp, threshold, setThreshold } = useWeatherContext();
 
   /* State */
+  const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -280,6 +282,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (clientTrigger) {
       setAvgTemp(clientTrigger.avgTemp);
+      setFetchedAt(Date.now());
     }
   }, [clientTrigger, setAvgTemp]);
 
@@ -669,7 +672,8 @@ export default function Dashboard() {
               Weather-driven demand signals · Ontario retail · GTA traffic
             </p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <LastUpdated fetchedAt={fetchedAt} label="Weather refreshed" />
             <label htmlFor="city-select" style={{ fontSize: "13px", color: "#94a3b8" }}>
               City:
             </label>
