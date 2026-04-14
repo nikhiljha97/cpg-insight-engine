@@ -5,6 +5,17 @@ import fs from "node:fs";
 import path from "node:path";
 import cors from "cors";
 
+// ── Cache types ──────────────────────────────────────────────
+interface CacheEntry<T> { data: T; fetchedAt: number; }
+interface RetailDataPoint { period: string; value: number; unit: string; }
+interface RetailResponse { data: RetailDataPoint[]; trend: "up" | "down" | "flat"; latestValue: number; prevValue: number; changePercent: number; }
+interface TrafficEvent { description: string; county: string; road: string; }
+interface TrafficResponse { incidentCount: number; disruptionLevel: "Low" | "Moderate" | "High" | "Unknown"; topEvents: TrafficEvent[]; error?: string; }
+let retailCache: CacheEntry<RetailResponse> | null = null;
+const RETAIL_CACHE_TTL_MS = 60 * 60 * 1000;
+let trafficCache: CacheEntry<TrafficResponse> | null = null;
+const TRAFFIC_CACHE_TTL_MS = 15 * 60 * 1000;
+
 type City = {
   name: string;
   lat: number;
@@ -46,30 +57,13 @@ const cities: City[] = [
 ];
 
 const wmo: Record<number, string> = {
-  0: "Clear sky",
-  1: "Mainly clear",
-  2: "Partly cloudy",
-  3: "Overcast",
-  45: "Fog",
-  48: "Icy fog",
-  51: "Light drizzle",
-  53: "Moderate drizzle",
-  55: "Dense drizzle",
-  61: "Light rain",
-  63: "Moderate rain",
-  65: "Heavy rain",
-  71: "Light snow",
-  73: "Moderate snow",
-  75: "Heavy snow",
-  77: "Snow grains",
-  80: "Light showers",
-  81: "Moderate showers",
-  82: "Violent showers",
-  85: "Light snow showers",
-  86: "Heavy snow showers",
-  95: "Thunderstorm",
-  96: "Thunderstorm with hail",
-  99: "Heavy thunderstorm with hail"
+  0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+  45: "Fog", 48: "Icy fog", 51: "Light drizzle", 53: "Moderate drizzle",
+  55: "Dense drizzle", 61: "Light rain", 63: "Moderate rain", 65: "Heavy rain",
+  71: "Light snow", 73: "Moderate snow", 75: "Heavy snow", 77: "Snow grains",
+  80: "Light showers", 81: "Moderate showers", 82: "Violent showers",
+  85: "Light snow showers", 86: "Heavy snow showers", 95: "Thunderstorm",
+  96: "Thunderstorm with hail", 99: "Heavy thunderstorm with hail"
 };
 
 const wetCodes = new Set([51, 53, 55, 61, 63, 65, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]);
@@ -133,9 +127,7 @@ function readUnifiedSignal(): Record<string, unknown> | null {
     if (!fs.existsSync(UNIFIED_SIGNAL_PATH)) return null;
     const raw = fs.readFileSync(UNIFIED_SIGNAL_PATH, "utf8");
     return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function getCityByName(name?: string): City {
@@ -153,16 +145,16 @@ function getWeatherEmoji(code: number): string {
   return "☀️";
 }
 
-function evaluateTrigger(forecast: ForecastDay[]) {
+function evaluateTrigger(forecast: ForecastDay[], threshold: number = WEATHER_THRESHOLD) {
   const window = forecast.slice(1, 4);
   const avgTemp = Number((window.reduce((sum, day) => sum + day.tempAvg, 0) / window.length).toFixed(1));
   const wetDays = window.filter((day) => wetCodes.has(day.weatherCode)).length;
   const windowDates = window.map((day) => day.date);
   return {
-    triggered: avgTemp < WEATHER_THRESHOLD && wetDays > 0,
+    triggered: avgTemp < threshold && wetDays > 0,
     avgTemp,
     wetDays,
-    threshold: WEATHER_THRESHOLD,
+    threshold,
     windowDates
   };
 }
@@ -180,11 +172,9 @@ async function fetchWeather(city: City) {
   params.append("daily", "weathercode");
 
   const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`Open-Meteo request failed with ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Open-Meteo request failed with ${response.status}`);
 
-  const data = (await response.json()) as {
+  const data = await response.json() as {
     daily: {
       time: string[];
       temperature_2m_max: number[];
@@ -199,9 +189,7 @@ async function fetchWeather(city: City) {
     const tempMin = data.daily.temperature_2m_min[index];
     const weatherCode = data.daily.weathercode[index];
     return {
-      date,
-      tempMax,
-      tempMin,
+      date, tempMax, tempMin,
       tempAvg: Number(((tempMax + tempMin) / 2).toFixed(1)),
       precipitationMm: data.daily.precipitation_sum[index],
       weatherCode,
@@ -221,24 +209,25 @@ async function fetchWeather(city: City) {
   return { forecast: forecastWithWindow, trigger };
 }
 
-function buildPitchPrompt(city: string, weatherData: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> }) {
-  const lines = weatherData.forecast.slice(0, 5).map((day) => {
-    return `${day.date}: ${day.weatherLabel}, ${day.tempMin}C to ${day.tempMax}C, precip ${day.precipitationMm}mm`;
-  });
+function buildPitchPrompt(
+  city: string,
+  weatherData: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> },
+  options?: {
+    threshold?: number;
+    trafficDisruption?: string;
+    ontarioRetailTrend?: string;
+  }
+) {
+  const lines = weatherData.forecast.slice(0, 5).map((day) =>
+    `${day.date}: ${day.weatherLabel}, ${day.tempMin}C to ${day.tempMax}C, precip ${day.precipitationMm}mm`
+  );
 
   const unified = readUnifiedSignal();
   const basket = unified?.basket_analysis as Record<string, unknown> | undefined;
   const soup = (basket?.soup_companions as Array<{ product?: string; pct_of_soup_baskets?: number }> | undefined) ?? [];
-  const soupLines = soup
-    .slice(0, 6)
-    .map((s) => `- ${s.product ?? "?"}: ${s.pct_of_soup_baskets ?? "?"}% of soup baskets`)
-    .join("\n");
-
+  const soupLines = soup.slice(0, 6).map((s) => `- ${s.product ?? "?"}: ${s.pct_of_soup_baskets ?? "?"}% of soup baskets`).join("\n");
   const cross = (basket?.top_cross_dept_pairs as Array<{ pair?: string; lift?: number }> | undefined) ?? [];
-  const crossLines = cross
-    .slice(0, 4)
-    .map((c) => `- ${c.pair ?? "?"}: ${c.lift ?? "?"}x lift`)
-    .join("\n");
+  const crossLines = cross.slice(0, 4).map((c) => `- ${c.pair ?? "?"}: ${c.lift ?? "?"}x lift`).join("\n");
 
   const promo = unified?.promo_attribution as Record<string, unknown> | undefined;
   const promoCats = (promo?.best_tactic_by_category as unknown[])?.length ?? 0;
@@ -251,63 +240,68 @@ function buildPitchPrompt(city: string, weatherData: { forecast: ForecastDay[]; 
   const topSeg = demo?.top_soup_buyer_segment as Record<string, unknown> | undefined;
   const demoLine = topSeg
     ? `Top soup-heavy segment: ${topSeg.age_group ?? "?"} / ${topSeg.income_group ?? "?"} (soup penetration ${topSeg.soup_penetration_pct ?? "?"}%).`
-    : "Demographic soup segment: not available in this build (rerun segmentation when CJ tables are wired).";
+    : "Demographic soup segment: not available.";
 
   const datasets = ((unified?.meta as Record<string, unknown> | undefined)?.datasets_used as string[] | undefined) ?? [];
+
+  const threshold = options?.threshold ?? WEATHER_THRESHOLD;
+  const traffic = options?.trafficDisruption ?? "Unknown";
+  const retailTrend = options?.ontarioRetailTrend ?? null;
+
+  const trafficLine = traffic === "High"
+    ? "GTA traffic disruption is HIGH today — highlight the appeal of staying warm indoors and convenience delivery."
+    : traffic === "Moderate"
+    ? "GTA traffic is MODERATE — road conditions may reduce store visits, consider digital/app offers."
+    : "";
+
+  const retailLine = retailTrend === "up"
+    ? "Ontario grocery retail sales are TRENDING UP — consumer spending confidence is high, lean into premium positioning."
+    : retailTrend === "down"
+    ? "Ontario grocery retail sales are SOFTENING — emphasise value, bundle savings, and loyalty rewards."
+    : "";
 
   return `
 You are a senior retail analytics consultant preparing a proactive CPG pitch for a major Canadian grocery retailer.
 
 AUDIENCE + FORMAT
 -------------------
-Write for a busy brand manager (90 seconds to read). Short paragraphs only (no bullet lists in the final pitch body),
-but you may use bullets while thinking. Max ~320 words.
+Write for a busy brand manager (90 seconds to read). Short paragraphs only. Max ~320 words.
 
 RETAIL CONTEXT
 --------------
 City: ${city}
 3-day average temperature: ${weatherData.trigger.avgTemp}C
-Wet days in trigger window: ${weatherData.trigger.wetDays}
-Trigger threshold: ${weatherData.trigger.threshold}C
+Custom trigger threshold set by user: ${threshold}C
 Trigger fired: ${weatherData.trigger.triggered ? "Yes" : "No"}
+Wet days in trigger window: ${weatherData.trigger.wetDays}
 
 Forecast summary:
 ${lines.join("\n")}
 
-DATA SIGNALS (use only what is supported by the facts below)
+LIVE MARKET SIGNALS
+-------------------
+GTA Traffic: ${traffic}${trafficLine ? "\n" + trafficLine : ""}
+Ontario Retail Trend: ${retailTrend ?? "unknown"}${retailLine ? "\n" + retailLine : ""}
+
+DATA SIGNALS
 -----------------------------------------------------------
-Datasets referenced in unified signal bundle:
-${datasets.length ? datasets.map((d) => `- ${d}`).join("\n") : "- (unified signal file missing — keep claims conservative)"}
+Datasets: ${datasets.length ? datasets.map((d) => `- ${d}`).join("\n") : "- unified signal missing"}
+Soup basket companions:
+${soupLines || "- not available"}
+Cross-department pairs (lift):
+${crossLines || "- not available"}
+Promo: ${promoCats} categories analysed, best store tier: ${bestTier}
+Price elasticity: ${elasticN} elastic categories
+Demographics: ${demoLine}
 
-Soup basket companions (co-purchase penetration among soup baskets):
-${soupLines || "- (not available)"}
-
-Cross-department pair examples (lift):
-${crossLines || "- (not available)"}
-
-Promo attribution summary (BATF / Carbo where loaded):
-- Categories with inferred best tactic: ${promoCats}
-- Best store tier for activation: ${bestTier}
-
-Price elasticity summary:
-- Elastic categories available: ${elasticN}
-
-Demographics summary:
-- ${demoLine}
-
-CORE STORY (must appear clearly)
---------------------------------
-Explain why a soup + fluid milk bundle / adjacency / digital coupon stack is credible this week, anchored on cold/wet demand
-and the strongest soup companion penetration (fluid milk).
-
-DELIVERABLES (must include all)
+DELIVERABLES
 ---------------------------------
 1) Weather-led hook (1 sentence)
-2) Quantified basket insight (soup + milk + 1–2 supporting companions)
-3) Retail activation plan (choose one: end-cap, aisle interrupt, app offer, loyalty coupon stack) with timing THIS WEEK
-4) Measurement plan (what KPIs you will track for 14 days)
-5) Risks + mitigations (stock-out, margin, category conflict)
-6) Clear CTA (what decision you need now)
+2) Quantified basket insight (soup + milk + 1–2 companions)
+3) Retail activation plan with timing THIS WEEK
+4) Measurement plan (14-day KPIs)
+5) Risks + mitigations
+6) Clear CTA
 
 Tone: confident, precise, no hype without numbers.
 `.trim();
@@ -366,9 +360,12 @@ app.get("/api/pitch-history", (_req, res) => {
 
 app.post("/api/generate-pitch", async (req, res) => {
   try {
-    const { city, weatherData } = req.body as {
+    const { city, weatherData, threshold, trafficDisruption, ontarioRetailTrend } = req.body as {
       city?: string;
       weatherData?: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> };
+      threshold?: number;
+      trafficDisruption?: string;
+      ontarioRetailTrend?: string;
     };
 
     if (!city || !weatherData) {
@@ -376,7 +373,7 @@ app.post("/api/generate-pitch", async (req, res) => {
       return;
     }
 
-    const prompt = buildPitchPrompt(city, weatherData);
+    const prompt = buildPitchPrompt(city, weatherData, { threshold, trafficDisruption, ontarioRetailTrend });
 
     if (!process.env.GROQ_API_KEY) {
       res.status(503).json({ error: "GROQ_API_KEY is not set", prompt });
@@ -405,6 +402,147 @@ app.post("/api/generate-pitch", async (req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown pitch generation error";
     res.status(500).json({ error: message });
+  }
+});
+
+// ── ROUTE: GET /api/statcan/ontario-retail ─────────────────
+
+app.get("/api/statcan/ontario-retail", async (_req, res) => {
+  // Serve from cache if still fresh
+  if (retailCache && Date.now() - retailCache.fetchedAt < RETAIL_CACHE_TTL_MS) {
+    return res.json(retailCache.data);
+  }
+
+  try {
+    const statcanRes = await fetch(
+      "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([{ vectorId: 32551248, latestN: 6 }]),
+      }
+    );
+
+    if (!statcanRes.ok) {
+      throw new Error(`StatCan responded with status ${statcanRes.status}`);
+    }
+
+    const raw = await statcanRes.json();
+
+    // StatCan WDS shape: Array<{ object: { vectorDataPoint: Array<{ refPer: string, value: number, scalarFactorCode: number }> } }>
+    const vectorData = raw?.[0]?.object?.vectorDataPoint as Array<{
+      refPer: string;
+      value: number;
+      scalarFactorCode?: number;
+    }> | undefined;
+
+    if (!vectorData || vectorData.length === 0) {
+      throw new Error("Unexpected StatCan response shape");
+    }
+
+    // Points arrive oldest-first; ensure correct order
+    const points = [...vectorData].sort((a, b) =>
+      a.refPer.localeCompare(b.refPer)
+    );
+
+    const unit = "$M"; // Vector 32551248 is in millions of dollars
+
+    const data: RetailDataPoint[] = points.map((p) => ({
+      period: p.refPer,   // e.g. "2026-01"
+      value: p.value,
+      unit,
+    }));
+
+    const latestValue = data[data.length - 1].value;
+    const prevValue = data[data.length - 2]?.value ?? latestValue;
+
+    const changePercent =
+      prevValue !== 0
+        ? Math.round(((latestValue - prevValue) / prevValue) * 10000) / 100
+        : 0;
+
+    const trend: "up" | "down" | "flat" =
+      changePercent > 0.1 ? "up" : changePercent < -0.1 ? "down" : "flat";
+
+    const payload: RetailResponse = {
+      data,
+      trend,
+      latestValue,
+      prevValue,
+      changePercent,
+    };
+
+    retailCache = { data: payload, fetchedAt: Date.now() };
+    return res.json(payload);
+  } catch (err) {
+    console.error("[StatCan proxy] fetch failed:", err);
+    return res.status(502).json({ error: "StatCan unavailable", data: [] });
+  }
+});
+
+// ── ROUTE: GET /api/traffic/gta ────────────────────────────
+
+app.get("/api/traffic/gta", async (_req, res) => {
+  // Serve from cache if still fresh
+  if (trafficCache && Date.now() - trafficCache.fetchedAt < TRAFFIC_CACHE_TTL_MS) {
+    return res.json(trafficCache.data);
+  }
+
+  try {
+    const url511 =
+      "https://511on.ca/api/v2/get/event?lang=en&county=Peel&county=Toronto&county=York";
+
+    const trafficRes = await fetch(url511);
+
+    if (!trafficRes.ok) {
+      throw new Error(`511 API responded with status ${trafficRes.status}`);
+    }
+
+    const events: Array<{
+      Description?: string;
+      County?: string;
+      RoadwayName?: string;
+      EventType?: string;
+      IsActive?: boolean;
+    }> = await trafficRes.json();
+
+    // Count only active incidents (filter defensively — some entries lack IsActive)
+    const activeEvents = events.filter(
+      (e) => e.IsActive === true || e.IsActive === undefined
+    );
+
+    const incidentCount = activeEvents.length;
+
+    const disruptionLevel: "Low" | "Moderate" | "High" =
+      incidentCount <= 2
+        ? "Low"
+        : incidentCount <= 6
+        ? "Moderate"
+        : "High";
+
+    const topEvents: TrafficEvent[] = activeEvents.slice(0, 4).map((e) => ({
+      description: e.Description ?? "No description",
+      county: e.County ?? "Unknown",
+      road: e.RoadwayName ?? "Unknown",
+    }));
+
+    const payload: TrafficResponse = {
+      incidentCount,
+      disruptionLevel,
+      topEvents,
+    };
+
+    trafficCache = { data: payload, fetchedAt: Date.now() };
+    return res.json(payload);
+  } catch (err) {
+    console.error("[511 proxy] fetch failed:", err);
+    const fallback: TrafficResponse = {
+      incidentCount: 0,
+      disruptionLevel: "Unknown",
+      topEvents: [],
+      error: "511 unavailable",
+    };
+    return res.status(502).json(fallback);
   }
 });
 

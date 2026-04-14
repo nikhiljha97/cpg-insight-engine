@@ -6,6 +6,7 @@ import PitchHistory from "./pages/PitchHistory";
 import PromoAttribution from "./pages/PromoAttribution";
 import PriceElasticity from "./pages/PriceElasticity";
 import DemographicSegments from "./pages/DemographicSegments";
+import About from "./pages/About";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
@@ -13,7 +14,8 @@ const navItems = [
   { href: "/history", label: "Pitch History" },
   { href: "/promo", label: "Promo Attribution" },
   { href: "/elasticity", label: "Price Elasticity" },
-  { href: "/demographics", label: "Demographics" }
+  { href: "/demographics", label: "Demographics" },
+  { href: "/about", label: "About" }
 ];
 
 export default function App() {
@@ -51,6 +53,7 @@ export default function App() {
           <Route path="/promo" component={PromoAttribution} />
           <Route path="/elasticity" component={PriceElasticity} />
           <Route path="/demographics" component={DemographicSegments} />
+          <Route path="/about" component={About} />
         </main>
       </div>
     </Router>
