@@ -56,7 +56,7 @@ export default function Dashboard() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(apiUrl(`/api/weather?city=${encodeURIComponent(selectedCity)}`);
+        const response = await fetch(apiUrl(`/api/weather?city=${encodeURIComponent(selectedCity)}`));
         const data = (await response.json()) as WeatherResponse | { error: string };
         if (!response.ok || "error" in data) {
           throw new Error("error" in data ? data.error : "Failed to load weather");
