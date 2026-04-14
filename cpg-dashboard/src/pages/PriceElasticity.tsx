@@ -35,16 +35,42 @@ interface ElasticityData {
   store_tier_summary: StoreTierRow[];
 }
 
-function ElasticityBar({ value }: { value: number }) {
-  const abs = Math.abs(value);
-  const pct = Math.min(abs / 1.5, 1) * 100;
-  const color = abs > 1 ? "#dc2626" : abs > 0.5 ? "#f59e0b" : "#16a34a";
+const tierColors: Record<string, string> = { MAINSTREAM: "#1d4ed8", VALUE: "#15803d", UPSCALE: "#7e22ce" };
+const discountColors: Record<string, string> = { "0-5% off": "#475569", "5-15% off": "#0369a1", "15-30% off": "#b45309", "30%+ off": "#b91c1c" };
+
+const S = {
+  page: { padding: "32px 28px", maxWidth: 1100 } as React.CSSProperties,
+  eyebrow: { fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "#22d3ee", marginBottom: 4 },
+  h2: { fontSize: 28, fontWeight: 800, color: "#f1f5f9", marginBottom: 24, marginTop: 0 },
+  card: { background: "#1e293b", border: "1px solid #334155", borderRadius: 12, padding: "24px", marginBottom: 20 } as React.CSSProperties,
+  callout: { background: "#1c1a06", border: "1px solid #854d0e", borderLeft: "4px solid #eab308", borderRadius: 10, padding: "18px 22px", marginBottom: 20 } as React.CSSProperties,
+  calloutTitle: { fontSize: 13, fontWeight: 800, color: "#fde047", marginBottom: 6, textTransform: "uppercase" as const, letterSpacing: "0.06em" },
+  calloutBody: { fontSize: 15, color: "#fef9c3", lineHeight: 1.7 },
+  th: { padding: "12px 14px", fontWeight: 700, fontSize: 12, color: "#94a3b8", textTransform: "uppercase" as const, letterSpacing: "0.06em", borderBottom: "2px solid #334155", background: "#0f172a", cursor: "pointer", userSelect: "none" as const, whiteSpace: "nowrap" as const },
+  td: { padding: "13px 14px", fontSize: 14, color: "#e2e8f0", borderBottom: "1px solid #263040" },
+  tdBold: { padding: "13px 14px", fontSize: 15, fontWeight: 700, color: "#f1f5f9", borderBottom: "1px solid #263040" },
+  sectionTitle: { fontSize: 17, fontWeight: 800, color: "#f1f5f9", marginBottom: 16, marginTop: 0 },
+  badge: (bg: string) => ({ background: bg, color: "#fff", borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" as const, display: "inline-block" }),
+  select: { fontSize: 14, padding: "8px 14px", borderRadius: 8, border: "1px solid #475569", background: "#0f172a", color: "#e2e8f0", cursor: "pointer" } as React.CSSProperties,
+};
+
+type ElasticSortKey = keyof ElasticCategory;
+type DiscountSortKey = keyof DiscountRow;
+
+function SortIcon({ dir }: { dir: "asc" | "desc" | null }) {
+  if (!dir) return <span style={{ color: "#475569", marginLeft: 4 }}>⇅</span>;
+  return <span style={{ color: "#38bdf8", marginLeft: 4 }}>{dir === "asc" ? "↑" : "↓"}</span>;
+}
+
+function ElasticBar({ value }: { value: number }) {
+  const abs = Math.min(Math.abs(value) / 1.5, 1) * 100;
+  const color = Math.abs(value) > 1 ? "#ef4444" : "#f59e0b";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 4, height: 8, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 4 }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ flex: 1, background: "#0f172a", borderRadius: 4, height: 10, overflow: "hidden", minWidth: 80 }}>
+        <div style={{ width: `${abs}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.4s" }} />
       </div>
-      <span style={{ fontWeight: 700, color, fontSize: 13, minWidth: 44 }}>{value.toFixed(3)}</span>
+      <span style={{ fontWeight: 800, color, fontSize: 14, minWidth: 48 }}>{value.toFixed(3)}</span>
     </div>
   );
 }
@@ -53,14 +79,17 @@ export default function PriceElasticity() {
   const [data, setData] = useState<ElasticityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [elasticSort, setElasticSort] = useState<{ key: ElasticSortKey; dir: "asc" | "desc" }>({ key: "elasticity_coef", dir: "asc" });
+  const [discountSort, setDiscountSort] = useState<{ key: DiscountSortKey; dir: "asc" | "desc" }>({ key: "avg_units", dir: "desc" });
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch(apiUrl("/api/signals/price-elasticity"));
         const json = await res.json();
-        if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed to load elasticity signals");
+        if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed");
         setData(json as ElasticityData);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unknown error");
@@ -71,142 +100,157 @@ export default function PriceElasticity() {
     void load();
   }, []);
 
-  if (loading) return <section className="page"><div className="skeleton pitch-skeleton" style={{ height: 300 }} /></section>;
-  if (error) return <section className="page"><div className="callout error">{error}</div></section>;
+  if (loading) return <div style={{ padding: 40, color: "#94a3b8", fontSize: 16 }}>Loading elasticity signals…</div>;
+  if (error) return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
   if (!data) return null;
 
-  const tierColors: Record<string, string> = { MAINSTREAM: "#2563eb", VALUE: "#16a34a", UPSCALE: "#9333ea" };
   const categories = [...new Set(data.discount_depth_impact.map(r => r.category))];
-  const filteredDiscount = selectedCategory === "ALL"
-    ? data.discount_depth_impact
-    : data.discount_depth_impact.filter(r => r.category === selectedCategory);
-
   const discountOrder = ["0-5% off", "5-15% off", "15-30% off", "30%+ off"];
-  const sortedDiscount = [...filteredDiscount].sort((a, b) =>
-    discountOrder.indexOf(a.discount_tier) - discountOrder.indexOf(b.discount_tier)
-  );
+
+  const sortedElastic = [...data.most_elastic_categories].sort((a, b) => {
+    const av = a[elasticSort.key], bv = b[elasticSort.key];
+    if (typeof av === "number" && typeof bv === "number") return elasticSort.dir === "asc" ? av - bv : bv - av;
+    return elasticSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  });
+
+  const filteredDiscount = (selectedCategory === "ALL" ? data.discount_depth_impact : data.discount_depth_impact.filter(r => r.category === selectedCategory))
+    .sort((a, b) => {
+      if (discountSort.key === "discount_tier") {
+        const ai = discountOrder.indexOf(a.discount_tier), bi = discountOrder.indexOf(b.discount_tier);
+        return discountSort.dir === "asc" ? ai - bi : bi - ai;
+      }
+      const av = a[discountSort.key], bv = b[discountSort.key];
+      if (typeof av === "number" && typeof bv === "number") return discountSort.dir === "asc" ? av - bv : bv - av;
+      return 0;
+    });
 
   return (
-    <section className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Signals</p>
-          <h2>Price Elasticity</h2>
-        </div>
-      </header>
+    <div style={S.page}>
+      <p style={S.eyebrow}>Signals</p>
+      <h2 style={S.h2}>Price Elasticity</h2>
 
-      {/* Insight callout */}
-      <div className="card" style={{ background: "#fef9c3", borderLeft: "4px solid #ca8a04", marginBottom: 24, padding: "16px 20px" }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: "#92400e", marginBottom: 4 }}>Key Insight</div>
-        <div style={{ fontSize: 14, color: "#78350f", lineHeight: 1.6 }}>
-          <strong>Bag Snacks</strong> and <strong>Frozen Pizza</strong> are the most price-sensitive categories (elasticity &gt; 1.0).
-          A <strong>5–10% price reduction</strong> drives disproportionate volume uplift — ideal for promotional price points.
-          Cold Cereal in MAINSTREAM stores responds sharply to deep discounts (30%+), tripling unit velocity.
+      <div style={S.callout}>
+        <div style={S.calloutTitle}>Key Insight</div>
+        <div style={S.calloutBody}>
+          <strong>Bag Snacks</strong> and <strong>Frozen Pizza</strong> are the most price-sensitive categories (elasticity &gt; 1.0) —
+          a 5–10% price reduction drives disproportionate volume uplift.
+          Cold Cereal in MAINSTREAM stores responds dramatically to deep discounts,
+          with units tripling at the <strong>30%+ off</strong> tier. Use this to time promotional windows.
         </div>
       </div>
 
-      {/* Elastic categories */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title-row" style={{ marginBottom: 16 }}>
-          <h3>Elasticity by Category &amp; Store Tier</h3>
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>Higher absolute value = more price-sensitive</span>
-        </div>
+      {/* Elasticity table */}
+      <div style={S.card}>
+        <h3 style={S.sectionTitle}>Elasticity by Category &amp; Store Tier <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>— click headers to sort</span></h3>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
-                {["Category", "Store Tier", "Elasticity Coefficient", "Sensitivity", "Avg Price", "Avg Units/Wk"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontWeight: 700, fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid #e2e8f0" }}>{h}</th>
+              <tr>
+                {([
+                  ["category", "Category"],
+                  ["store_tier", "Store Tier"],
+                  ["elasticity_coef", "Elasticity"],
+                  ["interpretation", "Sensitivity"],
+                  ["avg_price", "Avg Price"],
+                  ["avg_units", "Avg Units/Wk"],
+                ] as [ElasticSortKey, string][]).map(([k, label]) => (
+                  <th key={k} style={S.th} onClick={() => setElasticSort(prev => ({ key: k, dir: prev.key === k && prev.dir === "desc" ? "asc" : "desc" }))}>
+                    {label}<SortIcon dir={elasticSort.key === k ? elasticSort.dir : null} />
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.most_elastic_categories.map((row, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>{row.category}</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ background: tierColors[row.store_tier] ?? "#64748b", color: "#fff", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{row.store_tier}</span>
-                  </td>
-                  <td style={{ padding: "10px 12px", minWidth: 180 }}>
-                    <ElasticityBar value={row.elasticity_coef} />
-                  </td>
-                  <td style={{ padding: "10px 12px", fontSize: 12, color: Math.abs(row.elasticity_coef) > 1 ? "#dc2626" : "#f59e0b", fontWeight: 600 }}>
-                    {Math.abs(row.elasticity_coef) > 1 ? "Highly Elastic" : "Elastic"}
-                  </td>
-                  <td style={{ padding: "10px 12px", color: "#475569" }}>${row.avg_price.toFixed(2)}</td>
-                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>{row.avg_units.toFixed(1)}</td>
-                </tr>
-              ))}
+              {sortedElastic.map((row, i) => {
+                const rowId = `e${i}`;
+                const hovered = hoveredRow === rowId;
+                return (
+                  <tr key={i} style={{ background: hovered ? "#243447" : "transparent", transition: "background 0.15s" }}
+                    onMouseEnter={() => setHoveredRow(rowId)} onMouseLeave={() => setHoveredRow(null)}>
+                    <td style={S.tdBold}>{row.category}</td>
+                    <td style={S.td}><span style={S.badge(tierColors[row.store_tier] ?? "#475569")}>{row.store_tier}</span></td>
+                    <td style={{ ...S.td, minWidth: 200 }}><ElasticBar value={row.elasticity_coef} /></td>
+                    <td style={{ ...S.td, color: Math.abs(row.elasticity_coef) > 1 ? "#f87171" : "#fbbf24", fontWeight: 700 }}>
+                      {Math.abs(row.elasticity_coef) > 1 ? "⚡ Highly Elastic" : "Elastic"}
+                    </td>
+                    <td style={{ ...S.td, color: "#94a3b8" }}>${row.avg_price.toFixed(2)}</td>
+                    <td style={{ ...S.td, fontWeight: 700 }}>{row.avg_units.toFixed(1)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Discount depth impact */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <h3 style={{ margin: 0 }}>Discount Depth Impact on Volume</h3>
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            style={{ fontSize: 13, padding: "6px 10px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer" }}
-          >
+      {/* Discount depth */}
+      <div style={S.card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+          <h3 style={{ ...S.sectionTitle, marginBottom: 0 }}>Discount Depth Impact on Volume</h3>
+          <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={S.select}>
             <option value="ALL">All Categories</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
-                {["Category", "Discount Tier", "Avg Units/Wk", "Avg Store Visits", "Households Reached", "Observations"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "10px 12px", fontWeight: 700, fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid #e2e8f0" }}>{h}</th>
+              <tr>
+                {([
+                  ["category", "Category"],
+                  ["discount_tier", "Discount Tier"],
+                  ["avg_units", "Avg Units/Wk"],
+                  ["avg_visits", "Store Visits"],
+                  ["avg_households", "Households"],
+                  ["observations", "Observations"],
+                ] as [DiscountSortKey, string][]).map(([k, label]) => (
+                  <th key={k} style={S.th} onClick={() => setDiscountSort(prev => ({ key: k, dir: prev.key === k && prev.dir === "desc" ? "asc" : "desc" }))}>
+                    {label}<SortIcon dir={discountSort.key === k ? discountSort.dir : null} />
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {sortedDiscount.map((row, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>{row.category}</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ background: row.discount_tier === "30%+ off" ? "#dc2626" : row.discount_tier === "15-30% off" ? "#f59e0b" : "#64748b", color: "#fff", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{row.discount_tier}</span>
-                  </td>
-                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#16a34a" }}>{row.avg_units.toFixed(1)}</td>
-                  <td style={{ padding: "10px 12px" }}>{row.avg_visits.toFixed(1)}</td>
-                  <td style={{ padding: "10px 12px" }}>{row.avg_households.toFixed(1)}</td>
-                  <td style={{ padding: "10px 12px", color: "#94a3b8" }}>{row.observations.toLocaleString()}</td>
-                </tr>
-              ))}
+              {filteredDiscount.map((row, i) => {
+                const rowId = `d${i}`;
+                const hovered = hoveredRow === rowId;
+                return (
+                  <tr key={i} style={{ background: hovered ? "#243447" : "transparent", transition: "background 0.15s" }}
+                    onMouseEnter={() => setHoveredRow(rowId)} onMouseLeave={() => setHoveredRow(null)}>
+                    <td style={S.tdBold}>{row.category}</td>
+                    <td style={S.td}><span style={S.badge(discountColors[row.discount_tier] ?? "#475569")}>{row.discount_tier}</span></td>
+                    <td style={{ ...S.td, color: "#34d399", fontWeight: 800, fontSize: 16 }}>{row.avg_units.toFixed(1)}</td>
+                    <td style={S.td}>{row.avg_visits.toFixed(1)}</td>
+                    <td style={S.td}>{row.avg_households.toFixed(1)}</td>
+                    <td style={{ ...S.td, color: "#64748b" }}>{row.observations.toLocaleString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Store tier summary */}
-      <div className="card">
-        <div className="section-title-row" style={{ marginBottom: 16 }}>
-          <h3>Store Tier Profile</h3>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-          {data.store_tier_summary.map(tier => (
-            <div key={tier.store_tier} style={{ border: `2px solid ${tierColors[tier.store_tier] ?? "#e2e8f0"}`, borderRadius: 10, padding: 16 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: tierColors[tier.store_tier] ?? "#334155", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>{tier.store_tier}</div>
-              {[
-                ["Stores", tier.store_count],
-                ["Avg Sq Ft", tier.avg_sqft.toLocaleString()],
-                ["Weekly Baskets", tier.avg_weekly_baskets.toLocaleString()],
-                ["Avg Shelf Price", `$${tier.avg_shelf_price.toFixed(2)}`],
-                ["Units / SKU / Wk", tier.avg_units_per_sku_week.toFixed(1)],
-              ].map(([label, val]) => (
-                <div key={label as string} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "1px solid #f1f5f9" }}>
-                  <span style={{ color: "#64748b" }}>{label}</span>
-                  <span style={{ fontWeight: 600 }}>{val}</span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+      {/* Store tier cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        {data.store_tier_summary.map(tier => (
+          <div key={tier.store_tier} style={{ ...S.card, marginBottom: 0, borderTop: `3px solid ${tierColors[tier.store_tier] ?? "#475569"}` }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: tierColors[tier.store_tier] ?? "#e2e8f0", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.08em" }}>{tier.store_tier}</div>
+            {([
+              ["Stores", tier.store_count],
+              ["Avg Sq Ft", tier.avg_sqft.toLocaleString()],
+              ["Weekly Baskets", tier.avg_weekly_baskets.toLocaleString()],
+              ["Avg Shelf Price", `$${tier.avg_shelf_price.toFixed(2)}`],
+              ["Units / SKU / Wk", tier.avg_units_per_sku_week.toFixed(1)],
+            ] as [string, string | number][]).map(([label, val]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "7px 0", borderBottom: "1px solid #334155" }}>
+                <span style={{ color: "#94a3b8" }}>{label}</span>
+                <span style={{ fontWeight: 700, color: "#f1f5f9" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }
