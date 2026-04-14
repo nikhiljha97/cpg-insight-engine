@@ -1,3 +1,4 @@
+import { apiUrl } from "../api";
 const companions = [
   ["Fluid Milk", 48.0],
   ["Bananas", 29.0],

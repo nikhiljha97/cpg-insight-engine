@@ -1,3 +1,4 @@
+import { apiUrl } from "../api";
 import { useEffect, useMemo, useState } from "react";
 
 type City = {
@@ -43,7 +44,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadCities() {
-      const response = await fetch("/api/cities");
+      const response = await fetch(apiUrl("/api/cities"));
       const data = (await response.json()) as City[];
       setCities(data);
     }
@@ -55,7 +56,7 @@ export default function Dashboard() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(`/api/weather?city=${encodeURIComponent(selectedCity)}`);
+        const response = await fetch(apiUrl(`/api/weather?city=${encodeURIComponent(selectedCity)}`);
         const data = (await response.json()) as WeatherResponse | { error: string };
         if (!response.ok || "error" in data) {
           throw new Error("error" in data ? data.error : "Failed to load weather");
@@ -85,7 +86,7 @@ export default function Dashboard() {
     setPitchLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/generate-pitch", {
+      const response = await fetch(apiUrl("/api/generate-pitch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ city: weather.city.name, weatherData: weather })

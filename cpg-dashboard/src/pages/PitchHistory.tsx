@@ -1,3 +1,4 @@
+import { apiUrl } from "../api";
 import { useEffect, useState } from "react";
 
 type PitchHistoryRow = {
@@ -16,7 +17,7 @@ export default function PitchHistory() {
 
   useEffect(() => {
     async function loadHistory() {
-      const response = await fetch("/api/pitch-history");
+      const response = await fetch(apiUrl("/api/pitch-history"));
       const data = (await response.json()) as PitchHistoryRow[];
       setItems(data);
       setLoading(false);
