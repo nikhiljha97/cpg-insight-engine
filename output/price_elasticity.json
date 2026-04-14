@@ -1,0 +1,763 @@
+{
+  "price_elasticity": [
+    {
+      "category": "BAG SNACKS",
+      "store_tier": "MAINSTREAM",
+      "elasticity_coef": -1.243,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 1.97,
+      "avg_units": 26.2,
+      "price_points": [
+        {
+          "price_bucket": 0.82,
+          "avg_units": 4.36
+        },
+        {
+          "price_bucket": 0.9,
+          "avg_units": 9.5
+        },
+        {
+          "price_bucket": 0.91,
+          "avg_units": 180.08
+        },
+        {
+          "price_bucket": 0.92,
+          "avg_units": 122.81
+        },
+        {
+          "price_bucket": 0.93,
+          "avg_units": 60.85
+        },
+        {
+          "price_bucket": 0.94,
+          "avg_units": 43.2
+        },
+        {
+          "price_bucket": 0.95,
+          "avg_units": 29.72
+        },
+        {
+          "price_bucket": 0.96,
+          "avg_units": 32.44
+        },
+        {
+          "price_bucket": 0.97,
+          "avg_units": 35.57
+        },
+        {
+          "price_bucket": 0.98,
+          "avg_units": 40.38
+        }
+      ]
+    },
+    {
+      "category": "BAG SNACKS",
+      "store_tier": "UPSCALE",
+      "elasticity_coef": -0.835,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 1.99,
+      "avg_units": 31.71,
+      "price_points": [
+        {
+          "price_bucket": 0.93,
+          "avg_units": 28.23
+        },
+        {
+          "price_bucket": 0.94,
+          "avg_units": 33.21
+        },
+        {
+          "price_bucket": 0.95,
+          "avg_units": 28.14
+        },
+        {
+          "price_bucket": 0.96,
+          "avg_units": 34.3
+        },
+        {
+          "price_bucket": 0.97,
+          "avg_units": 32.68
+        },
+        {
+          "price_bucket": 0.98,
+          "avg_units": 39.55
+        },
+        {
+          "price_bucket": 0.99,
+          "avg_units": 39.71
+        },
+        {
+          "price_bucket": 1.0,
+          "avg_units": 25.99
+        },
+        {
+          "price_bucket": 1.01,
+          "avg_units": 28.9
+        },
+        {
+          "price_bucket": 1.02,
+          "avg_units": 26.94
+        }
+      ]
+    },
+    {
+      "category": "BAG SNACKS",
+      "store_tier": "VALUE",
+      "elasticity_coef": -1.339,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 1.8,
+      "avg_units": 13.62,
+      "price_points": [
+        {
+          "price_bucket": 0.82,
+          "avg_units": 4.67
+        },
+        {
+          "price_bucket": 0.87,
+          "avg_units": 4.29
+        },
+        {
+          "price_bucket": 0.93,
+          "avg_units": 16.21
+        },
+        {
+          "price_bucket": 0.94,
+          "avg_units": 15.51
+        },
+        {
+          "price_bucket": 0.95,
+          "avg_units": 15.36
+        },
+        {
+          "price_bucket": 0.96,
+          "avg_units": 20.03
+        },
+        {
+          "price_bucket": 0.97,
+          "avg_units": 20.79
+        },
+        {
+          "price_bucket": 0.98,
+          "avg_units": 24.11
+        },
+        {
+          "price_bucket": 0.99,
+          "avg_units": 17.9
+        },
+        {
+          "price_bucket": 1.0,
+          "avg_units": 10.55
+        }
+      ]
+    },
+    {
+      "category": "COLD CEREAL",
+      "store_tier": "MAINSTREAM",
+      "elasticity_coef": -0.872,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 2.73,
+      "avg_units": 42.79,
+      "price_points": [
+        {
+          "price_bucket": 1.32,
+          "avg_units": 222.9
+        },
+        {
+          "price_bucket": 1.33,
+          "avg_units": 130.4
+        },
+        {
+          "price_bucket": 1.37,
+          "avg_units": 156.0
+        },
+        {
+          "price_bucket": 1.38,
+          "avg_units": 186.38
+        },
+        {
+          "price_bucket": 1.39,
+          "avg_units": 130.57
+        },
+        {
+          "price_bucket": 1.4,
+          "avg_units": 91.15
+        },
+        {
+          "price_bucket": 1.41,
+          "avg_units": 265.0
+        },
+        {
+          "price_bucket": 1.42,
+          "avg_units": 80.62
+        },
+        {
+          "price_bucket": 1.43,
+          "avg_units": 68.33
+        },
+        {
+          "price_bucket": 1.44,
+          "avg_units": 69.6
+        }
+      ]
+    },
+    {
+      "category": "COLD CEREAL",
+      "store_tier": "UPSCALE",
+      "elasticity_coef": -0.246,
+      "interpretation": "Inelastic \u2014 loyal buyers, price changes have low impact",
+      "avg_price": 2.63,
+      "avg_units": 46.96,
+      "price_points": [
+        {
+          "price_bucket": 1.49,
+          "avg_units": 87.0
+        },
+        {
+          "price_bucket": 1.5,
+          "avg_units": 80.57
+        },
+        {
+          "price_bucket": 1.51,
+          "avg_units": 86.73
+        },
+        {
+          "price_bucket": 1.52,
+          "avg_units": 41.29
+        },
+        {
+          "price_bucket": 1.53,
+          "avg_units": 48.0
+        },
+        {
+          "price_bucket": 1.54,
+          "avg_units": 21.36
+        },
+        {
+          "price_bucket": 1.55,
+          "avg_units": 19.47
+        },
+        {
+          "price_bucket": 1.56,
+          "avg_units": 20.39
+        },
+        {
+          "price_bucket": 1.57,
+          "avg_units": 18.17
+        },
+        {
+          "price_bucket": 1.58,
+          "avg_units": 26.88
+        }
+      ]
+    },
+    {
+      "category": "COLD CEREAL",
+      "store_tier": "VALUE",
+      "elasticity_coef": -0.633,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 2.59,
+      "avg_units": 32.81,
+      "price_points": [
+        {
+          "price_bucket": 1.42,
+          "avg_units": 143.1
+        },
+        {
+          "price_bucket": 1.5,
+          "avg_units": 114.25
+        },
+        {
+          "price_bucket": 1.51,
+          "avg_units": 153.63
+        },
+        {
+          "price_bucket": 1.52,
+          "avg_units": 102.23
+        },
+        {
+          "price_bucket": 1.53,
+          "avg_units": 43.48
+        },
+        {
+          "price_bucket": 1.54,
+          "avg_units": 32.42
+        },
+        {
+          "price_bucket": 1.55,
+          "avg_units": 27.56
+        },
+        {
+          "price_bucket": 1.56,
+          "avg_units": 29.99
+        },
+        {
+          "price_bucket": 1.57,
+          "avg_units": 26.75
+        },
+        {
+          "price_bucket": 1.58,
+          "avg_units": 25.68
+        }
+      ]
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "store_tier": "MAINSTREAM",
+      "elasticity_coef": -0.848,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 4.79,
+      "avg_units": 15.88,
+      "price_points": [
+        {
+          "price_bucket": 2.84,
+          "avg_units": 15.5
+        },
+        {
+          "price_bucket": 2.86,
+          "avg_units": 16.28
+        },
+        {
+          "price_bucket": 2.87,
+          "avg_units": 18.1
+        },
+        {
+          "price_bucket": 2.88,
+          "avg_units": 23.05
+        },
+        {
+          "price_bucket": 2.89,
+          "avg_units": 21.29
+        },
+        {
+          "price_bucket": 2.9,
+          "avg_units": 22.45
+        },
+        {
+          "price_bucket": 2.91,
+          "avg_units": 23.1
+        },
+        {
+          "price_bucket": 2.92,
+          "avg_units": 23.56
+        },
+        {
+          "price_bucket": 2.93,
+          "avg_units": 28.5
+        },
+        {
+          "price_bucket": 2.94,
+          "avg_units": 30.14
+        }
+      ]
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "store_tier": "UPSCALE",
+      "elasticity_coef": -0.03,
+      "interpretation": "Inelastic \u2014 loyal buyers, price changes have low impact",
+      "avg_price": 4.6,
+      "avg_units": 15.81,
+      "price_points": [
+        {
+          "price_bucket": 2.84,
+          "avg_units": 4.55
+        },
+        {
+          "price_bucket": 2.86,
+          "avg_units": 20.73
+        },
+        {
+          "price_bucket": 2.87,
+          "avg_units": 8.1
+        },
+        {
+          "price_bucket": 2.88,
+          "avg_units": 11.06
+        },
+        {
+          "price_bucket": 2.89,
+          "avg_units": 14.77
+        },
+        {
+          "price_bucket": 2.9,
+          "avg_units": 12.38
+        },
+        {
+          "price_bucket": 2.91,
+          "avg_units": 19.31
+        },
+        {
+          "price_bucket": 2.92,
+          "avg_units": 18.27
+        },
+        {
+          "price_bucket": 2.93,
+          "avg_units": 18.83
+        },
+        {
+          "price_bucket": 2.94,
+          "avg_units": 23.08
+        }
+      ]
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "store_tier": "VALUE",
+      "elasticity_coef": -1.105,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 4.52,
+      "avg_units": 16.28,
+      "price_points": [
+        {
+          "price_bucket": 2.87,
+          "avg_units": 14.8
+        },
+        {
+          "price_bucket": 2.88,
+          "avg_units": 19.0
+        },
+        {
+          "price_bucket": 2.89,
+          "avg_units": 20.17
+        },
+        {
+          "price_bucket": 2.9,
+          "avg_units": 24.15
+        },
+        {
+          "price_bucket": 2.91,
+          "avg_units": 25.55
+        },
+        {
+          "price_bucket": 2.92,
+          "avg_units": 22.74
+        },
+        {
+          "price_bucket": 2.93,
+          "avg_units": 28.26
+        },
+        {
+          "price_bucket": 2.94,
+          "avg_units": 28.23
+        },
+        {
+          "price_bucket": 2.95,
+          "avg_units": 31.38
+        },
+        {
+          "price_bucket": 2.96,
+          "avg_units": 43.48
+        }
+      ]
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "store_tier": "MAINSTREAM",
+      "elasticity_coef": -0.458,
+      "interpretation": "Inelastic \u2014 loyal buyers, price changes have low impact",
+      "avg_price": 3.23,
+      "avg_units": 5.86,
+      "price_points": [
+        {
+          "price_bucket": 0.9,
+          "avg_units": 2.02
+        },
+        {
+          "price_bucket": 0.92,
+          "avg_units": 6.7
+        },
+        {
+          "price_bucket": 0.93,
+          "avg_units": 6.34
+        },
+        {
+          "price_bucket": 0.94,
+          "avg_units": 9.32
+        },
+        {
+          "price_bucket": 0.95,
+          "avg_units": 7.12
+        },
+        {
+          "price_bucket": 0.96,
+          "avg_units": 10.13
+        },
+        {
+          "price_bucket": 0.97,
+          "avg_units": 9.35
+        },
+        {
+          "price_bucket": 0.98,
+          "avg_units": 10.59
+        },
+        {
+          "price_bucket": 0.99,
+          "avg_units": 14.87
+        },
+        {
+          "price_bucket": 1.0,
+          "avg_units": 8.64
+        }
+      ]
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "store_tier": "UPSCALE",
+      "elasticity_coef": -0.37,
+      "interpretation": "Inelastic \u2014 loyal buyers, price changes have low impact",
+      "avg_price": 3.33,
+      "avg_units": 8.18,
+      "price_points": [
+        {
+          "price_bucket": 0.9,
+          "avg_units": 2.56
+        },
+        {
+          "price_bucket": 0.92,
+          "avg_units": 9.0
+        },
+        {
+          "price_bucket": 0.93,
+          "avg_units": 5.31
+        },
+        {
+          "price_bucket": 0.94,
+          "avg_units": 11.87
+        },
+        {
+          "price_bucket": 0.95,
+          "avg_units": 6.67
+        },
+        {
+          "price_bucket": 0.96,
+          "avg_units": 12.05
+        },
+        {
+          "price_bucket": 0.97,
+          "avg_units": 12.09
+        },
+        {
+          "price_bucket": 0.98,
+          "avg_units": 12.8
+        },
+        {
+          "price_bucket": 0.99,
+          "avg_units": 18.52
+        },
+        {
+          "price_bucket": 1.0,
+          "avg_units": 9.32
+        }
+      ]
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "store_tier": "VALUE",
+      "elasticity_coef": -0.75,
+      "interpretation": "Elastic \u2014 units sensitive to price",
+      "avg_price": 3.11,
+      "avg_units": 4.83,
+      "price_points": [
+        {
+          "price_bucket": 0.9,
+          "avg_units": 1.41
+        },
+        {
+          "price_bucket": 0.92,
+          "avg_units": 7.4
+        },
+        {
+          "price_bucket": 0.93,
+          "avg_units": 7.94
+        },
+        {
+          "price_bucket": 0.94,
+          "avg_units": 8.77
+        },
+        {
+          "price_bucket": 0.95,
+          "avg_units": 6.2
+        },
+        {
+          "price_bucket": 0.96,
+          "avg_units": 9.3
+        },
+        {
+          "price_bucket": 0.97,
+          "avg_units": 11.77
+        },
+        {
+          "price_bucket": 0.98,
+          "avg_units": 9.92
+        },
+        {
+          "price_bucket": 0.99,
+          "avg_units": 13.31
+        },
+        {
+          "price_bucket": 1.0,
+          "avg_units": 6.81
+        }
+      ]
+    }
+  ],
+  "discount_depth": [
+    {
+      "category": "BAG SNACKS",
+      "discount_tier": "0-5% off",
+      "avg_units": 19.79,
+      "avg_visits": 17.19,
+      "avg_households": 16.94,
+      "observations": 98112
+    },
+    {
+      "category": "BAG SNACKS",
+      "discount_tier": "15-30% off",
+      "avg_units": 23.18,
+      "avg_visits": 19.45,
+      "avg_households": 19.21,
+      "observations": 18454
+    },
+    {
+      "category": "BAG SNACKS",
+      "discount_tier": "30%+ off",
+      "avg_units": 16.03,
+      "avg_visits": 12.49,
+      "avg_households": 12.38,
+      "observations": 3323
+    },
+    {
+      "category": "BAG SNACKS",
+      "discount_tier": "5-15% off",
+      "avg_units": 23.88,
+      "avg_visits": 19.73,
+      "avg_households": 19.48,
+      "observations": 7495
+    },
+    {
+      "category": "COLD CEREAL",
+      "discount_tier": "0-5% off",
+      "avg_units": 25.85,
+      "avg_visits": 23.68,
+      "avg_households": 22.86,
+      "observations": 132227
+    },
+    {
+      "category": "COLD CEREAL",
+      "discount_tier": "15-30% off",
+      "avg_units": 60.06,
+      "avg_visits": 51.06,
+      "avg_households": 49.94,
+      "observations": 17716
+    },
+    {
+      "category": "COLD CEREAL",
+      "discount_tier": "30%+ off",
+      "avg_units": 103.22,
+      "avg_visits": 84.54,
+      "avg_households": 82.59,
+      "observations": 8608
+    },
+    {
+      "category": "COLD CEREAL",
+      "discount_tier": "5-15% off",
+      "avg_units": 40.95,
+      "avg_visits": 34.4,
+      "avg_households": 33.58,
+      "observations": 11126
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "discount_tier": "0-5% off",
+      "avg_units": 8.32,
+      "avg_visits": 7.11,
+      "avg_households": 7.01,
+      "observations": 81143
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "discount_tier": "15-30% off",
+      "avg_units": 19.8,
+      "avg_visits": 17.03,
+      "avg_households": 16.79,
+      "observations": 14624
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "discount_tier": "30%+ off",
+      "avg_units": 29.02,
+      "avg_visits": 24.67,
+      "avg_households": 24.31,
+      "observations": 9536
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "discount_tier": "5-15% off",
+      "avg_units": 17.09,
+      "avg_visits": 14.53,
+      "avg_households": 14.34,
+      "observations": 5873
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "discount_tier": "0-5% off",
+      "avg_units": 3.56,
+      "avg_visits": 3.44,
+      "avg_households": 3.42,
+      "observations": 83418
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "discount_tier": "15-30% off",
+      "avg_units": 6.05,
+      "avg_visits": 5.52,
+      "avg_households": 5.48,
+      "observations": 14994
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "discount_tier": "30%+ off",
+      "avg_units": 9.11,
+      "avg_visits": 7.48,
+      "avg_households": 7.42,
+      "observations": 11855
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "discount_tier": "5-15% off",
+      "avg_units": 4.04,
+      "avg_visits": 3.8,
+      "avg_households": 3.78,
+      "observations": 6237
+    }
+  ],
+  "store_tier_summary": [
+    {
+      "store_tier": "VALUE",
+      "store_count": 19,
+      "avg_sqft": 40028.0,
+      "avg_weekly_baskets": 21980.0,
+      "avg_shelf_price": 3.29,
+      "avg_discount_amount": 0.23,
+      "avg_units_per_sku_week": 15.85
+    },
+    {
+      "store_tier": "MAINSTREAM",
+      "store_count": 43,
+      "avg_sqft": 50547.0,
+      "avg_weekly_baskets": 24188.0,
+      "avg_shelf_price": 3.39,
+      "avg_discount_amount": 0.221,
+      "avg_units_per_sku_week": 19.62
+    },
+    {
+      "store_tier": "UPSCALE",
+      "store_count": 17,
+      "avg_sqft": 59271.0,
+      "avg_weekly_baskets": 28287.0,
+      "avg_shelf_price": 3.47,
+      "avg_discount_amount": 0.209,
+      "avg_units_per_sku_week": 23.19
+    }
+  ]
+}

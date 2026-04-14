@@ -1,0 +1,64 @@
+{
+  "generated_at": "2026-04-13T21:26:37.215721",
+  "location": "Mississauga, ON",
+  "weather_trigger": {
+    "triggered": true,
+    "trigger_type": "cold_wet",
+    "window_days": [
+      "2026-04-14",
+      "2026-04-15",
+      "2026-04-16"
+    ],
+    "avg_temp": 14.8,
+    "conditions": [
+      "Heavy rain",
+      "Moderate rain",
+      "Moderate drizzle"
+    ],
+    "precip_total": 29.6
+  },
+  "top_product_pairs": [
+    {
+      "anchor_product": "SOUP",
+      "paired_product": "FLUID MILK WHITE ONLY",
+      "department": "GROCERY",
+      "co_baskets": 11327,
+      "pct_of_soup_baskets": 48.0
+    },
+    {
+      "anchor_product": "SOUP",
+      "paired_product": "BANANAS",
+      "department": "PRODUCE",
+      "co_baskets": 6853,
+      "pct_of_soup_baskets": 29.0
+    },
+    {
+      "anchor_product": "SOUP",
+      "paired_product": "MAINSTREAM WHITE BREAD",
+      "department": "GROCERY",
+      "co_baskets": 6043,
+      "pct_of_soup_baskets": 25.6
+    },
+    {
+      "anchor_product": "SOUP",
+      "paired_product": "SHREDDED CHEESE",
+      "department": "GROCERY",
+      "co_baskets": 5473,
+      "pct_of_soup_baskets": 23.2
+    },
+    {
+      "anchor_product": "SOUP",
+      "paired_product": "SOFT DRINKS 12/18&15PK CAN CAR",
+      "department": "GROCERY",
+      "co_baskets": 4603,
+      "pct_of_soup_baskets": 19.5
+    }
+  ],
+  "pitch_context": {
+    "anchor_product": "SOUP",
+    "paired_product": "FLUID MILK WHITE ONLY",
+    "pct_of_soup_baskets": 48.0,
+    "avg_temp_c": 14.8,
+    "weather_summary": "Heavy rain, Moderate rain, Moderate drizzle"
+  }
+}

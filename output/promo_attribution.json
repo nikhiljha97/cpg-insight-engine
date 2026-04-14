@@ -1,0 +1,286 @@
+{
+  "batf_promo": [
+    {
+      "category": "BAG SNACKS",
+      "store_tier": "MAINSTREAM",
+      "display_lift": 2.67,
+      "mailer_lift": 1.73,
+      "display_and_mailer_lift": 2.73,
+      "tpr_lift": 1.03,
+      "baseline_units": 16.91,
+      "observations": 74628
+    },
+    {
+      "category": "BAG SNACKS",
+      "store_tier": "UPSCALE",
+      "display_lift": 2.09,
+      "mailer_lift": 1.36,
+      "display_and_mailer_lift": 2.24,
+      "tpr_lift": 1.03,
+      "baseline_units": 24.54,
+      "observations": 29202
+    },
+    {
+      "category": "BAG SNACKS",
+      "store_tier": "VALUE",
+      "display_lift": 3.21,
+      "mailer_lift": 1.77,
+      "display_and_mailer_lift": 3.46,
+      "tpr_lift": 1.02,
+      "baseline_units": 8.17,
+      "observations": 26353
+    },
+    {
+      "category": "COLD CEREAL",
+      "store_tier": "MAINSTREAM",
+      "display_lift": 2.51,
+      "mailer_lift": 2.97,
+      "display_and_mailer_lift": 4.57,
+      "tpr_lift": 1.48,
+      "baseline_units": 24.9,
+      "observations": 95216
+    },
+    {
+      "category": "COLD CEREAL",
+      "store_tier": "UPSCALE",
+      "display_lift": 2.14,
+      "mailer_lift": 2.42,
+      "display_and_mailer_lift": 3.66,
+      "tpr_lift": 1.48,
+      "baseline_units": 31.2,
+      "observations": 37348
+    },
+    {
+      "category": "COLD CEREAL",
+      "store_tier": "VALUE",
+      "display_lift": 2.36,
+      "mailer_lift": 2.71,
+      "display_and_mailer_lift": 4.5,
+      "tpr_lift": 1.24,
+      "baseline_units": 21.73,
+      "observations": 41576
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "store_tier": "MAINSTREAM",
+      "display_lift": 2.8,
+      "mailer_lift": 2.7,
+      "display_and_mailer_lift": 3.91,
+      "tpr_lift": 1.55,
+      "baseline_units": 7.88,
+      "observations": 64082
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "store_tier": "UPSCALE",
+      "display_lift": 2.74,
+      "mailer_lift": 2.54,
+      "display_and_mailer_lift": 3.99,
+      "tpr_lift": 1.56,
+      "baseline_units": 8.11,
+      "observations": 26684
+    },
+    {
+      "category": "FROZEN PIZZA",
+      "store_tier": "VALUE",
+      "display_lift": 3.17,
+      "mailer_lift": 2.13,
+      "display_and_mailer_lift": 3.54,
+      "tpr_lift": 1.49,
+      "baseline_units": 7.9,
+      "observations": 23649
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "store_tier": "MAINSTREAM",
+      "display_lift": 1.93,
+      "mailer_lift": 2.68,
+      "display_and_mailer_lift": 3.79,
+      "tpr_lift": 1.55,
+      "baseline_units": 3.26,
+      "observations": 67881
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "store_tier": "UPSCALE",
+      "display_lift": 2.09,
+      "mailer_lift": 2.4,
+      "display_and_mailer_lift": 3.33,
+      "tpr_lift": 1.53,
+      "baseline_units": 4.7,
+      "observations": 28595
+    },
+    {
+      "category": "ORAL HYGIENE PRODUCTS",
+      "store_tier": "VALUE",
+      "display_lift": 2.15,
+      "mailer_lift": 2.67,
+      "display_and_mailer_lift": 4.35,
+      "tpr_lift": 1.59,
+      "baseline_units": 2.69,
+      "observations": 23429
+    }
+  ],
+  "carbo_promo": [
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Interior Page Feature",
+      "display_type": "Not on Display",
+      "baskets": 60583,
+      "total_units": 94064,
+      "total_sales": 145832.41
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Interior Page Feature",
+      "display_type": "Not on Display",
+      "baskets": 41758,
+      "total_units": 69653,
+      "total_sales": 50508.26
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Front Page Feature",
+      "display_type": "Not on Display",
+      "baskets": 28012,
+      "total_units": 58618,
+      "total_sales": 60758.57
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Front Page Feature",
+      "display_type": "Rear End Cap",
+      "baskets": 10390,
+      "total_units": 19262,
+      "total_sales": 18786.11
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Not on Feature",
+      "display_type": "In-Shelf",
+      "baskets": 12906,
+      "total_units": 17407,
+      "total_sales": 12503.43
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Not on Feature",
+      "display_type": "In-Shelf",
+      "baskets": 12570,
+      "total_units": 17190,
+      "total_sales": 27925.88
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Not on Feature",
+      "display_type": "Rear End Cap",
+      "baskets": 11337,
+      "total_units": 15312,
+      "total_sales": 22158.65
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Front Page Feature",
+      "display_type": "Not on Display",
+      "baskets": 7337,
+      "total_units": 11351,
+      "total_sales": 8907.86
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Not on Feature",
+      "display_type": "Rear End Cap",
+      "baskets": 8438,
+      "total_units": 11113,
+      "total_sales": 8942.77
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Interior Page Feature",
+      "display_type": "Rear End Cap",
+      "baskets": 6144,
+      "total_units": 8877,
+      "total_sales": 12568.4
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Wrap Interior Feature",
+      "display_type": "Not on Display",
+      "baskets": 5567,
+      "total_units": 8742,
+      "total_sales": 13583.98
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Wrap Interior Feature",
+      "display_type": "Not on Display",
+      "baskets": 4601,
+      "total_units": 8560,
+      "total_sales": 6494.95
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Front Page Feature",
+      "display_type": "Front End Cap",
+      "baskets": 4186,
+      "total_units": 7574,
+      "total_sales": 7297.27
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Back Page Feature",
+      "display_type": "Not on Display",
+      "baskets": 3475,
+      "total_units": 5841,
+      "total_sales": 5942.77
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Not on Feature",
+      "display_type": "Promo/Seasonal Aisle",
+      "baskets": 4148,
+      "total_units": 5513,
+      "total_sales": 7621.46
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Not on Feature",
+      "display_type": "Front End Cap",
+      "baskets": 4051,
+      "total_units": 5329,
+      "total_sales": 7754.09
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Not on Feature",
+      "display_type": "In-Aisle",
+      "baskets": 4047,
+      "total_units": 5276,
+      "total_sales": 5098.52
+    },
+    {
+      "commodity": "pasta",
+      "feature_type": "Not on Feature",
+      "display_type": "Front End Cap",
+      "baskets": 3630,
+      "total_units": 4814,
+      "total_sales": 3885.85
+    },
+    {
+      "commodity": "syrups",
+      "feature_type": "Not on Feature",
+      "display_type": "Secondary Location Display",
+      "baskets": 4240,
+      "total_units": 4759,
+      "total_sales": 8821.7
+    },
+    {
+      "commodity": "pasta sauce",
+      "feature_type": "Interior Page Feature",
+      "display_type": "Front End Cap",
+      "baskets": 3157,
+      "total_units": 4582,
+      "total_sales": 6319.29
+    }
+  ]
+}

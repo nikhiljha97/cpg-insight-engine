@@ -1,0 +1,697 @@
+{
+  "meta": {
+    "datasets_used": [
+      "Complete Journey (2.59M transactions, 8 tables)",
+      "Carbo-Loading (5.19M transactions, Pasta/Sauce/Syrup)",
+      "Breakfast at the Frat (682K rows, 156 weeks, price+promo)",
+      "Let's Get Sort-of-Real (300M transactions, basket missions)"
+    ],
+    "last_updated": "2026-04-14T01:16:15.687407"
+  },
+  "basket_analysis": {
+    "soup_companions": [
+      {
+        "product": "Fluid Milk",
+        "pct_of_soup_baskets": 48.0
+      },
+      {
+        "product": "Bananas",
+        "pct_of_soup_baskets": 29.0
+      },
+      {
+        "product": "White Bread",
+        "pct_of_soup_baskets": 25.6
+      },
+      {
+        "product": "Shredded Cheese",
+        "pct_of_soup_baskets": 23.2
+      },
+      {
+        "product": "Soft Drinks",
+        "pct_of_soup_baskets": 19.5
+      },
+      {
+        "product": "Orange Juice",
+        "pct_of_soup_baskets": 15.6
+      },
+      {
+        "product": "Kids Cereal",
+        "pct_of_soup_baskets": 14.9
+      },
+      {
+        "product": "Potato Chips",
+        "pct_of_soup_baskets": 14.4
+      }
+    ],
+    "top_cross_dept_pairs": [
+      {
+        "pair": "Hot Dog Buns + Premium Beef",
+        "lift": 14.6
+      },
+      {
+        "pair": "Hot Dog Buns + Premium Meat",
+        "lift": 13.3
+      },
+      {
+        "pair": "Frozen Patties + Hamburger Buns",
+        "lift": 10.8
+      },
+      {
+        "pair": "Refrigerated Biscuits + Pork Rolls",
+        "lift": 10.2
+      }
+    ],
+    "top_product_pairs": [
+      {
+        "product_a": "824555",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "951526",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "328",
+        "support": "0.001186325429319599",
+        "confidence_a_to_b": "0.48520710059171596",
+        "confidence_b_to_a": "0.4243208279430789",
+        "lift": "173.5472186287193"
+      },
+      {
+        "product_a": "951526",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "989075",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "352",
+        "support": "0.001273129729025911",
+        "confidence_a_to_b": "0.4553686934023286",
+        "confidence_b_to_a": "0.45714285714285713",
+        "lift": "163.5092958787655"
+      },
+      {
+        "product_a": "1050131",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "1053763",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "297",
+        "support": "0.0010742032088656124",
+        "confidence_a_to_b": "0.522887323943662",
+        "confidence_b_to_a": "0.31798715203426126",
+        "lift": "154.78584461802936"
+      },
+      {
+        "product_a": "900491",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "1053763",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "300",
+        "support": "0.0010850537463289016",
+        "confidence_a_to_b": "0.5076142131979695",
+        "confidence_b_to_a": "0.32119914346895073",
+        "lift": "150.2646767899651"
+      },
+      {
+        "product_a": "989075",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "1053763",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "377",
+        "support": "0.0013635508745533196",
+        "confidence_a_to_b": "0.4896103896103896",
+        "confidence_b_to_a": "0.40364025695931477",
+        "lift": "144.93515948719374"
+      },
+      {
+        "product_a": "951526",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "1053763",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "369",
+        "support": "0.0013346161079845489",
+        "confidence_a_to_b": "0.47736093143596375",
+        "confidence_b_to_a": "0.3950749464668094",
+        "lift": "141.30905756653215"
+      },
+      {
+        "product_a": "824555",
+        "commodity_a": "PWDR/CRYSTL DRNK MX",
+        "dept_a": "GROCERY",
+        "product_b": "1053763",
+        "commodity_b": "PWDR/CRYSTL DRNK MX",
+        "dept_b": "GROCERY",
+        "co_basket_count": "303",
+        "support": "0.0010959042837921905",
+        "confidence_a_to_b": "0.44822485207100593",
+        "confidence_b_to_a": "0.32441113490364026",
+        "lift": "132.68415417558884"
+      },
+      {
+        "product_a": "833715",
+        "commodity_a": "SOUP",
+        "dept_a": "GROCERY",
+        "product_b": "1003421",
+        "commodity_b": "SOUP",
+        "dept_b": "GROCERY",
+        "co_basket_count": "284",
+        "support": "0.0010271842131913602",
+        "confidence_a_to_b": "0.2646784715750233",
+        "confidence_b_to_a": "0.46405228758169936",
+        "lift": "119.57412178913194"
+      },
+      {
+        "product_a": "1021164",
+        "commodity_a": "COUPON/MISC ITEMS",
+        "dept_a": "MISC SALES TRAN",
+        "product_b": "5978648",
+        "commodity_b": " ",
+        "dept_b": " ",
+        "co_basket_count": "299",
+        "support": "0.0010814369005078051",
+        "confidence_a_to_b": "0.906060606060606",
+        "confidence_b_to_a": "0.10429019881409138",
+        "lift": "87.37748887550073"
+      },
+      {
+        "product_a": "892008",
+        "commodity_a": "MEAT - SHELF STABLE",
+        "dept_a": "GROCERY",
+        "product_b": "930917",
+        "commodity_b": "MEAT - SHELF STABLE",
+        "dept_b": "GROCERY",
+        "co_basket_count": "284",
+        "support": "0.0010271842131913602",
+        "confidence_a_to_b": "0.3141592920353982",
+        "confidence_b_to_a": "0.23946037099494097",
+        "lift": "73.23778895372264"
+      }
+    ]
+  },
+  "promo_attribution": {
+    "best_tactic_by_category": [
+      {
+        "category": "BAG SNACKS",
+        "store_tier": "VALUE",
+        "best_tactic": "display+mailer",
+        "lift": 3.46,
+        "baseline_units": 8.17
+      },
+      {
+        "category": "COLD CEREAL",
+        "store_tier": "MAINSTREAM",
+        "best_tactic": "display+mailer",
+        "lift": 4.57,
+        "baseline_units": 24.9
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "store_tier": "UPSCALE",
+        "best_tactic": "display+mailer",
+        "lift": 3.99,
+        "baseline_units": 8.11
+      },
+      {
+        "category": "ORAL HYGIENE PRODUCTS",
+        "store_tier": "VALUE",
+        "best_tactic": "display+mailer",
+        "lift": 4.35,
+        "baseline_units": 2.69
+      }
+    ],
+    "best_store_tier_for_activation": "MAINSTREAM",
+    "store_tier_lift_scores": {
+      "MAINSTREAM": 4.57,
+      "UPSCALE": 3.99,
+      "VALUE": 4.5
+    },
+    "carbo_top_promo": [
+      {
+        "commodity": "pasta sauce",
+        "feature_type": "Interior Page Feature",
+        "display_type": "Not on Display",
+        "baskets": 60583,
+        "total_units": 94064,
+        "total_sales": 145832.41
+      },
+      {
+        "commodity": "pasta",
+        "feature_type": "Interior Page Feature",
+        "display_type": "Not on Display",
+        "baskets": 41758,
+        "total_units": 69653,
+        "total_sales": 50508.26
+      },
+      {
+        "commodity": "pasta sauce",
+        "feature_type": "Front Page Feature",
+        "display_type": "Not on Display",
+        "baskets": 28012,
+        "total_units": 58618,
+        "total_sales": 60758.57
+      },
+      {
+        "commodity": "pasta sauce",
+        "feature_type": "Front Page Feature",
+        "display_type": "Rear End Cap",
+        "baskets": 10390,
+        "total_units": 19262,
+        "total_sales": 18786.11
+      },
+      {
+        "commodity": "pasta",
+        "feature_type": "Not on Feature",
+        "display_type": "In-Shelf",
+        "baskets": 12906,
+        "total_units": 17407,
+        "total_sales": 12503.43
+      }
+    ],
+    "cj_promo": []
+  },
+  "price_elasticity": {
+    "most_elastic_categories": [
+      {
+        "category": "BAG SNACKS",
+        "store_tier": "VALUE",
+        "elasticity_coef": -1.339,
+        "interpretation": "Elastic \u2014 units sensitive to price",
+        "avg_price": 1.8,
+        "avg_units": 13.62,
+        "price_points": [
+          {
+            "price_bucket": 0.82,
+            "avg_units": 4.67
+          },
+          {
+            "price_bucket": 0.87,
+            "avg_units": 4.29
+          },
+          {
+            "price_bucket": 0.93,
+            "avg_units": 16.21
+          },
+          {
+            "price_bucket": 0.94,
+            "avg_units": 15.51
+          },
+          {
+            "price_bucket": 0.95,
+            "avg_units": 15.36
+          },
+          {
+            "price_bucket": 0.96,
+            "avg_units": 20.03
+          },
+          {
+            "price_bucket": 0.97,
+            "avg_units": 20.79
+          },
+          {
+            "price_bucket": 0.98,
+            "avg_units": 24.11
+          },
+          {
+            "price_bucket": 0.99,
+            "avg_units": 17.9
+          },
+          {
+            "price_bucket": 1.0,
+            "avg_units": 10.55
+          }
+        ]
+      },
+      {
+        "category": "BAG SNACKS",
+        "store_tier": "MAINSTREAM",
+        "elasticity_coef": -1.243,
+        "interpretation": "Elastic \u2014 units sensitive to price",
+        "avg_price": 1.97,
+        "avg_units": 26.2,
+        "price_points": [
+          {
+            "price_bucket": 0.82,
+            "avg_units": 4.36
+          },
+          {
+            "price_bucket": 0.9,
+            "avg_units": 9.5
+          },
+          {
+            "price_bucket": 0.91,
+            "avg_units": 180.08
+          },
+          {
+            "price_bucket": 0.92,
+            "avg_units": 122.81
+          },
+          {
+            "price_bucket": 0.93,
+            "avg_units": 60.85
+          },
+          {
+            "price_bucket": 0.94,
+            "avg_units": 43.2
+          },
+          {
+            "price_bucket": 0.95,
+            "avg_units": 29.72
+          },
+          {
+            "price_bucket": 0.96,
+            "avg_units": 32.44
+          },
+          {
+            "price_bucket": 0.97,
+            "avg_units": 35.57
+          },
+          {
+            "price_bucket": 0.98,
+            "avg_units": 40.38
+          }
+        ]
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "store_tier": "VALUE",
+        "elasticity_coef": -1.105,
+        "interpretation": "Elastic \u2014 units sensitive to price",
+        "avg_price": 4.52,
+        "avg_units": 16.28,
+        "price_points": [
+          {
+            "price_bucket": 2.87,
+            "avg_units": 14.8
+          },
+          {
+            "price_bucket": 2.88,
+            "avg_units": 19.0
+          },
+          {
+            "price_bucket": 2.89,
+            "avg_units": 20.17
+          },
+          {
+            "price_bucket": 2.9,
+            "avg_units": 24.15
+          },
+          {
+            "price_bucket": 2.91,
+            "avg_units": 25.55
+          },
+          {
+            "price_bucket": 2.92,
+            "avg_units": 22.74
+          },
+          {
+            "price_bucket": 2.93,
+            "avg_units": 28.26
+          },
+          {
+            "price_bucket": 2.94,
+            "avg_units": 28.23
+          },
+          {
+            "price_bucket": 2.95,
+            "avg_units": 31.38
+          },
+          {
+            "price_bucket": 2.96,
+            "avg_units": 43.48
+          }
+        ]
+      },
+      {
+        "category": "COLD CEREAL",
+        "store_tier": "MAINSTREAM",
+        "elasticity_coef": -0.872,
+        "interpretation": "Elastic \u2014 units sensitive to price",
+        "avg_price": 2.73,
+        "avg_units": 42.79,
+        "price_points": [
+          {
+            "price_bucket": 1.32,
+            "avg_units": 222.9
+          },
+          {
+            "price_bucket": 1.33,
+            "avg_units": 130.4
+          },
+          {
+            "price_bucket": 1.37,
+            "avg_units": 156.0
+          },
+          {
+            "price_bucket": 1.38,
+            "avg_units": 186.38
+          },
+          {
+            "price_bucket": 1.39,
+            "avg_units": 130.57
+          },
+          {
+            "price_bucket": 1.4,
+            "avg_units": 91.15
+          },
+          {
+            "price_bucket": 1.41,
+            "avg_units": 265.0
+          },
+          {
+            "price_bucket": 1.42,
+            "avg_units": 80.62
+          },
+          {
+            "price_bucket": 1.43,
+            "avg_units": 68.33
+          },
+          {
+            "price_bucket": 1.44,
+            "avg_units": 69.6
+          }
+        ]
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "store_tier": "MAINSTREAM",
+        "elasticity_coef": -0.848,
+        "interpretation": "Elastic \u2014 units sensitive to price",
+        "avg_price": 4.79,
+        "avg_units": 15.88,
+        "price_points": [
+          {
+            "price_bucket": 2.84,
+            "avg_units": 15.5
+          },
+          {
+            "price_bucket": 2.86,
+            "avg_units": 16.28
+          },
+          {
+            "price_bucket": 2.87,
+            "avg_units": 18.1
+          },
+          {
+            "price_bucket": 2.88,
+            "avg_units": 23.05
+          },
+          {
+            "price_bucket": 2.89,
+            "avg_units": 21.29
+          },
+          {
+            "price_bucket": 2.9,
+            "avg_units": 22.45
+          },
+          {
+            "price_bucket": 2.91,
+            "avg_units": 23.1
+          },
+          {
+            "price_bucket": 2.92,
+            "avg_units": 23.56
+          },
+          {
+            "price_bucket": 2.93,
+            "avg_units": 28.5
+          },
+          {
+            "price_bucket": 2.94,
+            "avg_units": 30.14
+          }
+        ]
+      }
+    ],
+    "discount_depth_impact": [
+      {
+        "category": "BAG SNACKS",
+        "discount_tier": "0-5% off",
+        "avg_units": 19.79,
+        "avg_visits": 17.19,
+        "avg_households": 16.94,
+        "observations": 98112
+      },
+      {
+        "category": "BAG SNACKS",
+        "discount_tier": "15-30% off",
+        "avg_units": 23.18,
+        "avg_visits": 19.45,
+        "avg_households": 19.21,
+        "observations": 18454
+      },
+      {
+        "category": "BAG SNACKS",
+        "discount_tier": "30%+ off",
+        "avg_units": 16.03,
+        "avg_visits": 12.49,
+        "avg_households": 12.38,
+        "observations": 3323
+      },
+      {
+        "category": "BAG SNACKS",
+        "discount_tier": "5-15% off",
+        "avg_units": 23.88,
+        "avg_visits": 19.73,
+        "avg_households": 19.48,
+        "observations": 7495
+      },
+      {
+        "category": "COLD CEREAL",
+        "discount_tier": "0-5% off",
+        "avg_units": 25.85,
+        "avg_visits": 23.68,
+        "avg_households": 22.86,
+        "observations": 132227
+      },
+      {
+        "category": "COLD CEREAL",
+        "discount_tier": "15-30% off",
+        "avg_units": 60.06,
+        "avg_visits": 51.06,
+        "avg_households": 49.94,
+        "observations": 17716
+      },
+      {
+        "category": "COLD CEREAL",
+        "discount_tier": "30%+ off",
+        "avg_units": 103.22,
+        "avg_visits": 84.54,
+        "avg_households": 82.59,
+        "observations": 8608
+      },
+      {
+        "category": "COLD CEREAL",
+        "discount_tier": "5-15% off",
+        "avg_units": 40.95,
+        "avg_visits": 34.4,
+        "avg_households": 33.58,
+        "observations": 11126
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "discount_tier": "0-5% off",
+        "avg_units": 8.32,
+        "avg_visits": 7.11,
+        "avg_households": 7.01,
+        "observations": 81143
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "discount_tier": "15-30% off",
+        "avg_units": 19.8,
+        "avg_visits": 17.03,
+        "avg_households": 16.79,
+        "observations": 14624
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "discount_tier": "30%+ off",
+        "avg_units": 29.02,
+        "avg_visits": 24.67,
+        "avg_households": 24.31,
+        "observations": 9536
+      },
+      {
+        "category": "FROZEN PIZZA",
+        "discount_tier": "5-15% off",
+        "avg_units": 17.09,
+        "avg_visits": 14.53,
+        "avg_households": 14.34,
+        "observations": 5873
+      },
+      {
+        "category": "ORAL HYGIENE PRODUCTS",
+        "discount_tier": "0-5% off",
+        "avg_units": 3.56,
+        "avg_visits": 3.44,
+        "avg_households": 3.42,
+        "observations": 83418
+      },
+      {
+        "category": "ORAL HYGIENE PRODUCTS",
+        "discount_tier": "15-30% off",
+        "avg_units": 6.05,
+        "avg_visits": 5.52,
+        "avg_households": 5.48,
+        "observations": 14994
+      },
+      {
+        "category": "ORAL HYGIENE PRODUCTS",
+        "discount_tier": "30%+ off",
+        "avg_units": 9.11,
+        "avg_visits": 7.48,
+        "avg_households": 7.42,
+        "observations": 11855
+      },
+      {
+        "category": "ORAL HYGIENE PRODUCTS",
+        "discount_tier": "5-15% off",
+        "avg_units": 4.04,
+        "avg_visits": 3.8,
+        "avg_households": 3.78,
+        "observations": 6237
+      }
+    ],
+    "store_tier_summary": [
+      {
+        "store_tier": "VALUE",
+        "store_count": 19,
+        "avg_sqft": 40028.0,
+        "avg_weekly_baskets": 21980.0,
+        "avg_shelf_price": 3.29,
+        "avg_discount_amount": 0.23,
+        "avg_units_per_sku_week": 15.85
+      },
+      {
+        "store_tier": "MAINSTREAM",
+        "store_count": 43,
+        "avg_sqft": 50547.0,
+        "avg_weekly_baskets": 24188.0,
+        "avg_shelf_price": 3.39,
+        "avg_discount_amount": 0.221,
+        "avg_units_per_sku_week": 19.62
+      },
+      {
+        "store_tier": "UPSCALE",
+        "store_count": 17,
+        "avg_sqft": 59271.0,
+        "avg_weekly_baskets": 28287.0,
+        "avg_shelf_price": 3.47,
+        "avg_discount_amount": 0.209,
+        "avg_units_per_sku_week": 23.19
+      }
+    ]
+  },
+  "demographics": {
+    "top_soup_buyer_segment": {},
+    "all_segments": [],
+    "coupon_usage_by_dept": [],
+    "spend_trajectory": []
+  }
+}
