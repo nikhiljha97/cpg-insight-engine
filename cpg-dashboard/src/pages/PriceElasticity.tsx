@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
+import { useWeatherContext } from "./WeatherContext";
 
 interface ElasticCategory {
   category: string;
@@ -75,7 +76,21 @@ function ElasticBar({ value }: { value: number }) {
   );
 }
 
+function getPricingAdvice(avgTemp: number, threshold: number): string {
+  if (avgTemp < threshold && avgTemp < 5) {
+    return "Freezing conditions: consumers are price-inelastic for comfort staples. Hold prices on Soup & Pasta — uplift comes from weather, not discounts. Reserve 15–30% off for Snacks and Cereal to drive basket size.";
+  }
+  if (avgTemp < threshold) {
+    return "Cold trigger active: Soup and Hot Beverages show reduced price sensitivity. A 5–15% off promotion on these categories can drive basket expansion without sacrificing margin. Avoid deep discounts on cold-weather staples.";
+  }
+  if (avgTemp >= 20) {
+    return "Warm season: Soft Drinks and Ice Cream are highly elastic in summer. A 10–15% price drop can significantly boost volume. BBQ Meats respond best to multi-buy bundles rather than straight discounts.";
+  }
+  return "Shoulder season: moderate discounting (5–15% off) works across most categories. Everyday value messaging outperforms deep promotional price cuts in mild weather.";
+}
+
 export default function PriceElasticity() {
+  const { selectedCity, avgTemp, threshold } = useWeatherContext();
   const [data, setData] = useState<ElasticityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -113,49 +128,59 @@ export default function PriceElasticity() {
     return elasticSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
   });
 
-  const filteredDiscount = (selectedCategory === "ALL" ? data.discount_depth_impact : data.discount_depth_impact.filter(r => r.category === selectedCategory))
-    .sort((a, b) => {
-      if (discountSort.key === "discount_tier") {
-        const ai = discountOrder.indexOf(a.discount_tier), bi = discountOrder.indexOf(b.discount_tier);
-        return discountSort.dir === "asc" ? ai - bi : bi - ai;
-      }
-      const av = a[discountSort.key], bv = b[discountSort.key];
-      if (typeof av === "number" && typeof bv === "number") return discountSort.dir === "asc" ? av - bv : bv - av;
-      return 0;
-    });
+  const filteredDiscount = selectedCategory === "ALL"
+    ? data.discount_depth_impact
+    : data.discount_depth_impact.filter(r => r.category === selectedCategory);
+
+  const sortedDiscount = [...filteredDiscount].sort((a, b) => {
+    const av = a[discountSort.key], bv = b[discountSort.key];
+    if (typeof av === "number" && typeof bv === "number") return discountSort.dir === "asc" ? av - bv : bv - av;
+    return discountSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  });
+
+  const tempColor = avgTemp < threshold ? "#22d3ee" : avgTemp >= 20 ? "#f87171" : "#94a3b8";
 
   return (
     <div style={S.page}>
       <p style={S.eyebrow}>Signals</p>
       <h2 style={S.h2}>Price Elasticity</h2>
 
+      {/* ── Live context banner ── */}
+      <div style={{
+        background: "#0f172a",
+        border: `1px solid ${tempColor}44`,
+        borderLeft: `4px solid ${tempColor}`,
+        borderRadius: 10,
+        padding: "14px 20px",
+        marginBottom: 20,
+      }}>
+        <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Live Context — {selectedCity} · {avgTemp.toFixed(1)}°C avg · Trigger at {threshold}°C</div>
+        <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.6 }}>
+          <strong style={{ color: "#f1f5f9" }}>Pricing strategy for current conditions: </strong>
+          {getPricingAdvice(avgTemp, threshold)}
+        </div>
+      </div>
+
+      {/* Insight callout */}
       <div style={S.callout}>
-        <div style={S.calloutTitle}>Key Insight</div>
+        <div style={S.calloutTitle}>Elasticity Insight</div>
         <div style={S.calloutBody}>
-          <strong>Bag Snacks</strong> and <strong>Frozen Pizza</strong> are the most price-sensitive categories (elasticity &gt; 1.0) —
-          a 5–10% price reduction drives disproportionate volume uplift.
-          Cold Cereal in MAINSTREAM stores responds dramatically to deep discounts,
-          with units tripling at the <strong>30%+ off</strong> tier. Use this to time promotional windows.
+          Categories with elasticity coefficient &gt; 1.0 (in absolute terms) are <strong>highly price-sensitive</strong> — small discounts drive large volume swings.
+          Categories below 1.0 are <strong>inelastic</strong> — weather and convenience matter more than price. Use the table below to calibrate your promotional depth by store tier.
         </div>
       </div>
 
       {/* Elasticity table */}
       <div style={S.card}>
-        <h3 style={S.sectionTitle}>Elasticity by Category &amp; Store Tier <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>— click headers to sort</span></h3>
+        <h3 style={S.sectionTitle}>Most Elastic Categories <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>— click to sort</span></h3>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {([
-                  ["category", "Category"],
-                  ["store_tier", "Store Tier"],
-                  ["elasticity_coef", "Elasticity"],
-                  ["interpretation", "Sensitivity"],
-                  ["avg_price", "Avg Price"],
-                  ["avg_units", "Avg Units/Wk"],
-                ] as [ElasticSortKey, string][]).map(([k, label]) => (
+                {(["category", "store_tier", "elasticity_coef", "interpretation", "avg_price", "avg_units"] as ElasticSortKey[]).map(k => (
                   <th key={k} style={S.th} onClick={() => setElasticSort(prev => ({ key: k, dir: prev.key === k && prev.dir === "desc" ? "asc" : "desc" }))}>
-                    {label}<SortIcon dir={elasticSort.key === k ? elasticSort.dir : null} />
+                    {k === "category" ? "Category" : k === "store_tier" ? "Store Tier" : k === "elasticity_coef" ? "Elasticity" : k === "interpretation" ? "Price Sensitivity" : k === "avg_price" ? "Avg Price" : "Avg Units/Wk"}
+                    <SortIcon dir={elasticSort.key === k ? elasticSort.dir : null} />
                   </th>
                 ))}
               </tr>
@@ -169,10 +194,8 @@ export default function PriceElasticity() {
                     onMouseEnter={() => setHoveredRow(rowId)} onMouseLeave={() => setHoveredRow(null)}>
                     <td style={S.tdBold}>{row.category}</td>
                     <td style={S.td}><span style={S.badge(tierColors[row.store_tier] ?? "#475569")}>{row.store_tier}</span></td>
-                    <td style={{ ...S.td, minWidth: 200 }}><ElasticBar value={row.elasticity_coef} /></td>
-                    <td style={{ ...S.td, color: Math.abs(row.elasticity_coef) > 1 ? "#f87171" : "#fbbf24", fontWeight: 700 }}>
-                      {Math.abs(row.elasticity_coef) > 1 ? "⚡ Highly Elastic" : "Elastic"}
-                    </td>
+                    <td style={{ ...S.td, minWidth: 140 }}><ElasticBar value={row.elasticity_coef} /></td>
+                    <td style={{ ...S.td, fontSize: 13, color: Math.abs(row.elasticity_coef) > 1 ? "#fca5a5" : "#86efac" }}>{row.interpretation}</td>
                     <td style={{ ...S.td, color: "#94a3b8" }}>${row.avg_price.toFixed(2)}</td>
                     <td style={{ ...S.td, fontWeight: 700 }}>{row.avg_units.toFixed(1)}</td>
                   </tr>
@@ -185,44 +208,50 @@ export default function PriceElasticity() {
 
       {/* Discount depth */}
       <div style={S.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
-          <h3 style={{ ...S.sectionTitle, marginBottom: 0 }}>Discount Depth Impact on Volume</h3>
-          <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={S.select}>
-            <option value="ALL">All Categories</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <h3 style={{ ...S.sectionTitle, marginBottom: 0 }}>Discount Depth Impact</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label style={{ fontSize: 13, color: "#94a3b8" }}>Filter category:</label>
+            <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={S.select}>
+              <option value="ALL">All Categories</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {([
-                  ["category", "Category"],
-                  ["discount_tier", "Discount Tier"],
-                  ["avg_units", "Avg Units/Wk"],
-                  ["avg_visits", "Store Visits"],
-                  ["avg_households", "Households"],
-                  ["observations", "Observations"],
-                ] as [DiscountSortKey, string][]).map(([k, label]) => (
+                {(["category", "discount_tier", "avg_units", "avg_visits", "avg_households", "observations"] as DiscountSortKey[]).map(k => (
                   <th key={k} style={S.th} onClick={() => setDiscountSort(prev => ({ key: k, dir: prev.key === k && prev.dir === "desc" ? "asc" : "desc" }))}>
-                    {label}<SortIcon dir={discountSort.key === k ? discountSort.dir : null} />
+                    {k === "category" ? "Category" : k === "discount_tier" ? "Discount Tier" : k === "avg_units" ? "Avg Units" : k === "avg_visits" ? "Visits" : k === "avg_households" ? "Households" : "Observations"}
+                    <SortIcon dir={discountSort.key === k ? discountSort.dir : null} />
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filteredDiscount.map((row, i) => {
+              {sortedDiscount.map((row, i) => {
                 const rowId = `d${i}`;
                 const hovered = hoveredRow === rowId;
+                const discountIdx = discountOrder.indexOf(row.discount_tier);
+                const discountPct = discountIdx >= 0 ? (discountIdx + 1) / discountOrder.length * 100 : 30;
                 return (
                   <tr key={i} style={{ background: hovered ? "#243447" : "transparent", transition: "background 0.15s" }}
                     onMouseEnter={() => setHoveredRow(rowId)} onMouseLeave={() => setHoveredRow(null)}>
                     <td style={S.tdBold}>{row.category}</td>
-                    <td style={S.td}><span style={S.badge(discountColors[row.discount_tier] ?? "#475569")}>{row.discount_tier}</span></td>
-                    <td style={{ ...S.td, color: "#34d399", fontWeight: 800, fontSize: 16 }}>{row.avg_units.toFixed(1)}</td>
+                    <td style={S.td}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 40, height: 8, background: "#0f172a", borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ width: `${discountPct}%`, height: "100%", background: discountColors[row.discount_tier] ?? "#475569", borderRadius: 3 }} />
+                        </div>
+                        <span style={{ fontSize: 12, color: discountColors[row.discount_tier] ?? "#94a3b8", fontWeight: 700 }}>{row.discount_tier}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...S.td, fontWeight: 700, color: "#34d399" }}>{row.avg_units.toFixed(1)}</td>
                     <td style={S.td}>{row.avg_visits.toFixed(1)}</td>
                     <td style={S.td}>{row.avg_households.toFixed(1)}</td>
-                    <td style={{ ...S.td, color: "#64748b" }}>{row.observations.toLocaleString()}</td>
+                    <td style={{ ...S.td, color: "#64748b" }}>{row.observations}</td>
                   </tr>
                 );
               })}
@@ -231,25 +260,33 @@ export default function PriceElasticity() {
         </div>
       </div>
 
-      {/* Store tier cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-        {data.store_tier_summary.map(tier => (
-          <div key={tier.store_tier} style={{ ...S.card, marginBottom: 0, borderTop: `3px solid ${tierColors[tier.store_tier] ?? "#475569"}` }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: tierColors[tier.store_tier] ?? "#e2e8f0", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.08em" }}>{tier.store_tier}</div>
-            {([
-              ["Stores", tier.store_count],
-              ["Avg Sq Ft", tier.avg_sqft.toLocaleString()],
-              ["Weekly Baskets", tier.avg_weekly_baskets.toLocaleString()],
-              ["Avg Shelf Price", `$${tier.avg_shelf_price.toFixed(2)}`],
-              ["Units / SKU / Wk", tier.avg_units_per_sku_week.toFixed(1)],
-            ] as [string, string | number][]).map(([label, val]) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "7px 0", borderBottom: "1px solid #334155" }}>
-                <span style={{ color: "#94a3b8" }}>{label}</span>
-                <span style={{ fontWeight: 700, color: "#f1f5f9" }}>{val}</span>
-              </div>
-            ))}
-          </div>
-        ))}
+      {/* Store tier summary */}
+      <div style={S.card}>
+        <h3 style={S.sectionTitle}>Store Tier Summary</h3>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Store Tier", "Stores", "Avg SqFt", "Baskets/Wk", "Shelf Price", "Avg Discount", "Units/SKU/Wk"].map(label => (
+                  <th key={label} style={{ ...S.th, cursor: "default" }}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.store_tier_summary.map((row, i) => (
+                <tr key={i}>
+                  <td style={S.tdBold}><span style={S.badge(tierColors[row.store_tier] ?? "#475569")}>{row.store_tier}</span></td>
+                  <td style={S.td}>{row.store_count}</td>
+                  <td style={S.td}>{row.avg_sqft.toLocaleString()}</td>
+                  <td style={{ ...S.td, fontWeight: 700 }}>{row.avg_weekly_baskets.toFixed(0)}</td>
+                  <td style={S.td}>${row.avg_shelf_price.toFixed(2)}</td>
+                  <td style={{ ...S.td, color: "#f87171" }}>-${row.avg_discount_amount.toFixed(2)}</td>
+                  <td style={{ ...S.td, color: "#34d399", fontWeight: 700 }}>{row.avg_units_per_sku_week.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
