@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
+import { useWeatherContext } from "./WeatherContext";
 
 interface TacticRow {
   category: string;
@@ -53,12 +54,23 @@ const S = {
   sectionTitle: { fontSize: 17, fontWeight: 800, color: "#f1f5f9", marginBottom: 16, marginTop: 0 },
 };
 
+function getWeatherContext(avgTemp: number, threshold: number): { label: string; color: string; tip: string } {
+  if (avgTemp < threshold) {
+    if (avgTemp < 5) return { label: "Freezing Cold", color: "#38bdf8", tip: "Maximum promo uplift window. Activate display + mailer combinations immediately." };
+    if (avgTemp < 12) return { label: "Cold Weather Active", color: "#22d3ee", tip: "Cold trigger fired. Comfort food promotions will outperform. Focus on Mainstream stores." };
+    return { label: "Cool — Near Threshold", color: "#fbbf24", tip: "Just below trigger. Light promo activation recommended for Pasta & Soup." };
+  }
+  if (avgTemp < 20) return { label: "Mild — Shoulder Season", color: "#94a3b8", tip: "No cold trigger. Everyday value promotions work best in mild conditions." };
+  return { label: "Warm Weather", color: "#f87171", tip: "Warm season: shift focus to Soft Drinks, Snacks, BBQ categories." };
+}
+
 function SortIcon({ dir }: { dir: SortDir | null }) {
   if (!dir) return <span style={{ color: "#475569", marginLeft: 4 }}>⇅</span>;
   return <span style={{ color: "#38bdf8", marginLeft: 4 }}>{dir === "asc" ? "↑" : "↓"}</span>;
 }
 
 export default function PromoAttribution() {
+  const { selectedCity, avgTemp, threshold } = useWeatherContext();
   const [data, setData] = useState<PromoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -86,6 +98,7 @@ export default function PromoAttribution() {
   if (error) return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
   if (!data) return null;
 
+  const weatherCtx = getWeatherContext(avgTemp, threshold);
   const tierScores = data.store_tier_lift_scores ?? {};
   const topTier = data.best_store_tier_for_activation;
 
@@ -112,6 +125,36 @@ export default function PromoAttribution() {
     <div style={S.page}>
       <p style={S.eyebrow}>Signals</p>
       <h2 style={S.h2}>Promo Attribution</h2>
+
+      {/* ── Live context banner from Dashboard ── */}
+      <div style={{
+        background: "#0f172a",
+        border: `1px solid ${weatherCtx.color}44`,
+        borderLeft: `4px solid ${weatherCtx.color}`,
+        borderRadius: 10,
+        padding: "14px 20px",
+        marginBottom: 20,
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        flexWrap: "wrap",
+      }}>
+        <div>
+          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>Live Context from Dashboard</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>
+            {selectedCity} · {avgTemp.toFixed(1)}°C avg · Trigger at {threshold}°C
+          </div>
+        </div>
+        <div style={{
+          background: `${weatherCtx.color}18`,
+          border: `1px solid ${weatherCtx.color}44`,
+          borderRadius: 8,
+          padding: "8px 14px",
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: weatherCtx.color }}>{weatherCtx.label}</span>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{weatherCtx.tip}</div>
+        </div>
+      </div>
 
       {/* KPI strip */}
       <div style={S.kpiGrid}>
