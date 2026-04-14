@@ -1,4 +1,6 @@
 import { apiUrl } from "../api";
+import { useState } from "react";
+import LastUpdated from "./LastUpdated";
 const companions = [
   ["Fluid Milk", 48.0],
   ["Bananas", 29.0],
@@ -26,11 +28,12 @@ const pairs = [
 export default function BasketAnalysis() {
   return (
     <section className="page">
-      <header className="page-header">
+      <header className="page-header" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:12 }}>
         <div>
           <p className="eyebrow">Basket Analysis</p>
           <h2>Soup Companion Patterns</h2>
         </div>
+        <LastUpdated label="Analysis compiled" />
       </header>
 
       <div className="kpi-grid">
