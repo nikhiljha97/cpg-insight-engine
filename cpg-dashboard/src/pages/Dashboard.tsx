@@ -121,7 +121,7 @@ export default function Dashboard() {
 
   /* ── Fetch cities ─────────────────────────────────────────────────────── */
   useEffect(() => {
-    fetch(apiUrl() + "/api/cities")
+    fetch(apiUrl("/api/cities"))
       .then((r) => r.json())
       .then((data) => {
         setCities(data);
@@ -135,7 +135,7 @@ export default function Dashboard() {
     setError("");
     setWeather(null);
     setPitch("");
-    fetch(apiUrl() + `/api/weather?city=${encodeURIComponent(selectedCity)}`)
+    fetch(apiUrl(`/api/weather?city=${encodeURIComponent(selectedCity)}`))
       .then((r) => {
         if (!r.ok) throw new Error("Weather fetch failed");
         return r.json();
@@ -154,23 +154,14 @@ export default function Dashboard() {
   useEffect(() => {
     setRetailLoading(true);
     setRetailError(false);
-    fetch(
-      "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([{ vectorId: 32551248, latestN: 3 }]),
-      }
-    )
+    fetch(apiUrl("/api/statcan/ontario-retail"))
       .then((r) => {
         if (!r.ok) throw new Error("StatCan error");
         return r.json();
       })
-      .then((json) => {
-        const obs: RetailDataPoint[] = (
-          json?.[0]?.object?.vectorDataPoint ?? []
-        ).map((pt: { refPer: string; value: number }) => ({
-          refPer: pt.refPer,
+      .then((json: { data: Array<{ period: string; value: number }>; trend: string; latestValue: number; changePercent: number }) => {
+        const obs: RetailDataPoint[] = (json?.data ?? []).map((pt) => ({
+          refPer: pt.period,
           value: pt.value,
         }));
         setRetailData(obs);
@@ -186,15 +177,19 @@ export default function Dashboard() {
   useEffect(() => {
     setTrafficLoading(true);
     setTrafficError(false);
-    fetch(
-      "https://511on.ca/api/v2/get/event?lang=en&county=Peel&county=Toronto&county=York"
-    )
+    fetch(apiUrl("/api/traffic/gta"))
       .then((r) => {
         if (!r.ok) throw new Error("511 error");
         return r.json();
       })
-      .then((data: TrafficEvent[]) => {
-        setTrafficEvents(Array.isArray(data) ? data : []);
+      .then((data: { incidentCount: number; disruptionLevel: string; topEvents: Array<{ description: string; county: string; road: string }> }) => {
+        // Convert proxy response to TrafficEvent array format
+        const events: TrafficEvent[] = (data.topEvents ?? []).map(e => ({
+          Description: e.description,
+          County: e.county,
+          EventType: "Incident",
+        }));
+        setTrafficEvents(events);
         setTrafficLoading(false);
       })
       .catch(() => {
@@ -260,7 +255,7 @@ export default function Dashboard() {
           trafficDisruption: disruptionLevel,
         },
       };
-      const res = await fetch(apiUrl() + "/api/generate-pitch", {
+      const res = await fetch(apiUrl("/api/generate-pitch"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

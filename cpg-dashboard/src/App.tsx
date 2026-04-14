@@ -54,6 +54,7 @@ export default function App() {
           <Route path="/elasticity" component={PriceElasticity} />
           <Route path="/demographics" component={DemographicSegments} />
           <Route path="/about" component={About} />
+          <Route path="/about" component={About} />
         </main>
       </div>
     </Router>
