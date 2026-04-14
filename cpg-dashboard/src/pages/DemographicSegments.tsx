@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "../api";
 
 export default function DemographicSegments() {
   const [data, setData] = useState<unknown>(null);
@@ -8,7 +9,7 @@ export default function DemographicSegments() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/signals/demographics");
+        const res = await fetch(apiUrl("/api/signals/demographics"));
         const json = await res.json();
         if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed to load demographic signals");
         setData(json);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "../api";
 
 export default function PromoAttribution() {
   const [data, setData] = useState<unknown>(null);
@@ -8,7 +9,7 @@ export default function PromoAttribution() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/signals/promo");
+        const res = await fetch(apiUrl("/api/signals/promo"));
         const json = await res.json();
         if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed to load promo signals");
         setData(json);

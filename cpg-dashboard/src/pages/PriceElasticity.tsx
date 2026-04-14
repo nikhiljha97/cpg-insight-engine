@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "../api";
 
 export default function PriceElasticity() {
   const [data, setData] = useState<unknown>(null);
@@ -8,7 +9,7 @@ export default function PriceElasticity() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/signals/price-elasticity");
+        const res = await fetch(apiUrl("/api/signals/price-elasticity"));
         const json = await res.json();
         if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed to load elasticity signals");
         setData(json);
