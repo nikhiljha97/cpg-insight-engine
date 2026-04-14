@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import Database from "better-sqlite3";
 import Groq from "groq-sdk";
 
@@ -121,6 +122,7 @@ const listPitches = db.prepare(`
 `);
 
 const app = express();
+app.use(cors({ origin: "https://cpg-insight-engine.onrender.com" }));
 app.use(express.json());
 
 function getCityByName(name?: string): City {
