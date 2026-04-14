@@ -39,21 +39,21 @@ const DB_PATH = "cpg.db";
 const UNIFIED_SIGNAL_PATH = path.join(process.cwd(), "..", "output", "unified_signal.json");
 
 const cities: City[] = [
-  { name: "Mississauga", lat: 43.589, lon: -79.6441 },
-  { name: "Toronto", lat: 43.6532, lon: -79.3832 },
-  { name: "Vancouver", lat: 49.2827, lon: -123.1207 },
-  { name: "Montreal", lat: 45.5017, lon: -73.5673 },
-  { name: "Calgary", lat: 51.0447, lon: -114.0719 },
-  { name: "Ottawa", lat: 45.4215, lon: -75.6972 },
-  { name: "Edmonton", lat: 53.5461, lon: -113.4938 },
-  { name: "Winnipeg", lat: 49.8951, lon: -97.1384 },
-  { name: "Halifax", lat: 44.6488, lon: -63.5752 },
-  { name: "Quebec City", lat: 46.8139, lon: -71.208 },
-  { name: "Hamilton", lat: 43.2557, lon: -79.8711 },
-  { name: "Victoria", lat: 48.4284, lon: -123.3656 },
-  { name: "Saskatoon", lat: 52.1332, lon: -106.67 },
-  { name: "St. John's", lat: 47.5615, lon: -52.7126 },
-  { name: "Kelowna", lat: 49.888, lon: -119.496 }
+  { name: "Mississauga", lat: 43.589,  lon: -79.6441  },
+  { name: "Toronto",     lat: 43.6532, lon: -79.3832  },
+  { name: "Vancouver",   lat: 49.2827, lon: -123.1207 },
+  { name: "Montreal",    lat: 45.5017, lon: -73.5673  },
+  { name: "Calgary",     lat: 51.0447, lon: -114.0719 },
+  { name: "Ottawa",      lat: 45.4215, lon: -75.6972  },
+  { name: "Edmonton",    lat: 53.5461, lon: -113.4938 },
+  { name: "Winnipeg",    lat: 49.8951, lon: -97.1384  },
+  { name: "Halifax",     lat: 44.6488, lon: -63.5752  },
+  { name: "Quebec City", lat: 46.8139, lon: -71.208   },
+  { name: "Hamilton",    lat: 43.2557, lon: -79.8711  },
+  { name: "Victoria",    lat: 48.4284, lon: -123.3656 },
+  { name: "Saskatoon",   lat: 52.1332, lon: -106.67   },
+  { name: "St. John's",  lat: 47.5615, lon: -52.7126  },
+  { name: "Kelowna",     lat: 49.888,  lon: -119.496  }
 ];
 
 const wmo: Record<number, string> = {
@@ -70,26 +70,26 @@ const wetCodes = new Set([51, 53, 55, 61, 63, 65, 71, 73, 75, 77, 80, 81, 82, 85
 
 const basketData = {
   soupCompanions: [
-    { pairedProduct: "Fluid Milk", pctOfSoupBaskets: 48.0 },
-    { pairedProduct: "Bananas", pctOfSoupBaskets: 29.0 },
-    { pairedProduct: "White Bread", pctOfSoupBaskets: 25.6 },
+    { pairedProduct: "Fluid Milk",      pctOfSoupBaskets: 48.0 },
+    { pairedProduct: "Bananas",         pctOfSoupBaskets: 29.0 },
+    { pairedProduct: "White Bread",     pctOfSoupBaskets: 25.6 },
     { pairedProduct: "Shredded Cheese", pctOfSoupBaskets: 23.2 },
-    { pairedProduct: "Soft Drinks", pctOfSoupBaskets: 19.5 },
-    { pairedProduct: "Orange Juice", pctOfSoupBaskets: 15.6 },
-    { pairedProduct: "Kids Cereal", pctOfSoupBaskets: 14.9 },
-    { pairedProduct: "Potato Chips", pctOfSoupBaskets: 14.4 },
-    { pairedProduct: "Eggs", pctOfSoupBaskets: 13.4 },
-    { pairedProduct: "Wheat Bread", pctOfSoupBaskets: 13.2 }
+    { pairedProduct: "Soft Drinks",     pctOfSoupBaskets: 19.5 },
+    { pairedProduct: "Orange Juice",    pctOfSoupBaskets: 15.6 },
+    { pairedProduct: "Kids Cereal",     pctOfSoupBaskets: 14.9 },
+    { pairedProduct: "Potato Chips",    pctOfSoupBaskets: 14.4 },
+    { pairedProduct: "Eggs",            pctOfSoupBaskets: 13.4 },
+    { pairedProduct: "Wheat Bread",     pctOfSoupBaskets: 13.2 }
   ],
   topPairs: [
-    { pair: "Hot Dog Buns + Premium Beef", lift: 14.6, supportPct: 0.217 },
-    { pair: "Hot Dog Buns + Premium Meat", lift: 13.3, supportPct: 0.579 },
-    { pair: "Frozen Patties + Hamburger Buns", lift: 10.8, supportPct: 0.343 },
+    { pair: "Hot Dog Buns + Premium Beef",       lift: 14.6, supportPct: 0.217 },
+    { pair: "Hot Dog Buns + Premium Meat",        lift: 13.3, supportPct: 0.579 },
+    { pair: "Frozen Patties + Hamburger Buns",    lift: 10.8, supportPct: 0.343 },
     { pair: "Refrigerated Biscuits + Pork Rolls", lift: 10.2, supportPct: 0.312 },
-    { pair: "Economy Meat + Hot Dog Buns", lift: 10.1, supportPct: 0.404 },
-    { pair: "Hamburger Buns + Patties", lift: 8.6, supportPct: 0.258 },
-    { pair: "Cream Cheese + Misc Meat", lift: 8.1, supportPct: 0.244 },
-    { pair: "Lean Meat + Mexican Seasoning", lift: 8.1, supportPct: 0.31 }
+    { pair: "Economy Meat + Hot Dog Buns",        lift: 10.1, supportPct: 0.404 },
+    { pair: "Hamburger Buns + Patties",           lift:  8.6, supportPct: 0.258 },
+    { pair: "Cream Cheese + Misc Meat",           lift:  8.1, supportPct: 0.244 },
+    { pair: "Lean Meat + Mexican Seasoning",      lift:  8.1, supportPct: 0.310 }
   ]
 };
 
@@ -138,32 +138,26 @@ function getCityByName(name?: string): City {
 function getWeatherEmoji(code: number): string {
   if ([71, 73, 75, 77, 85, 86].includes(code)) return "❄️";
   if ([61, 63, 65, 80, 81, 82].includes(code)) return "🌧️";
-  if ([51, 53, 55].includes(code)) return "🌦️";
-  if ([95, 96, 99].includes(code)) return "⛈️";
-  if ([1, 2].includes(code)) return "⛅";
-  if (code === 3) return "☁️";
+  if ([51, 53, 55].includes(code))             return "🌦️";
+  if ([95, 96, 99].includes(code))             return "⛈️";
+  if ([1, 2].includes(code))                   return "⛅";
+  if (code === 3)                               return "☁️";
   return "☀️";
 }
 
 function evaluateTrigger(forecast: ForecastDay[], threshold: number = WEATHER_THRESHOLD) {
   const window = forecast.slice(1, 4);
-  const avgTemp = Number((window.reduce((sum, day) => sum + day.tempAvg, 0) / window.length).toFixed(1));
-  const wetDays = window.filter((day) => wetCodes.has(day.weatherCode)).length;
+  const avgTemp  = Number((window.reduce((sum, day) => sum + day.tempAvg, 0) / window.length).toFixed(1));
+  const wetDays  = window.filter((day) => wetCodes.has(day.weatherCode)).length;
   const windowDates = window.map((day) => day.date);
-  return {
-    triggered: avgTemp < threshold && wetDays > 0,
-    avgTemp,
-    wetDays,
-    threshold,
-    windowDates
-  };
+  return { triggered: avgTemp < threshold && wetDays > 0, avgTemp, wetDays, threshold, windowDates };
 }
 
 async function fetchWeather(city: City) {
   const params = new URLSearchParams({
-    latitude: String(city.lat),
-    longitude: String(city.lon),
-    timezone: "America/Toronto",
+    latitude:      String(city.lat),
+    longitude:     String(city.lon),
+    timezone:      "America/Toronto",
     forecast_days: "7"
   });
   params.append("daily", "temperature_2m_max");
@@ -190,10 +184,10 @@ async function fetchWeather(city: City) {
     const weatherCode = data.daily.weathercode[index];
     return {
       date, tempMax, tempMin,
-      tempAvg: Number(((tempMax + tempMin) / 2).toFixed(1)),
+      tempAvg:       Number(((tempMax + tempMin) / 2).toFixed(1)),
       precipitationMm: data.daily.precipitation_sum[index],
       weatherCode,
-      weatherLabel: wmo[weatherCode] ?? "Unknown",
+      weatherLabel:  wmo[weatherCode] ?? "Unknown",
       inTriggerWindow: false
     };
   });
@@ -212,13 +206,13 @@ async function fetchWeather(city: City) {
 // ── Category + companion helpers ─────────────────────────────
 
 function getCategoryFocus(avgTemp: number): string {
-  if (avgTemp < 0)        return "Canned Soup, Hot Beverages, Pasta & Sauce, Frozen Pizza, Oatmeal";
-  if (avgTemp < 5)        return "Canned Soup, Pasta & Sauce, Cold Cereal, Hot Beverages";
-  if (avgTemp < 10)       return "Canned Soup, Bag Snacks, Frozen Pizza";
-  if (avgTemp < 15)       return "Canned Soup, Pasta & Sauce, Cold Cereal";
-  if (avgTemp < 20)       return "Fresh Produce, Bag Snacks (everyday value)";
-  if (avgTemp < 25)       return "Soft Drinks, Ice Cream, BBQ & Grilling Meats, Bag Snacks";
-  return                         "Soft Drinks, Ice Cream, BBQ & Grilling Meats, Fresh Produce & Salads";
+  if (avgTemp < 0)  return "Canned Soup, Hot Beverages, Pasta & Sauce, Frozen Pizza, Oatmeal";
+  if (avgTemp < 5)  return "Canned Soup, Pasta & Sauce, Cold Cereal, Hot Beverages";
+  if (avgTemp < 10) return "Canned Soup, Bag Snacks, Frozen Pizza";
+  if (avgTemp < 15) return "Canned Soup, Pasta & Sauce, Cold Cereal";
+  if (avgTemp < 20) return "Fresh Produce, Bag Snacks (everyday value)";
+  if (avgTemp < 25) return "Soft Drinks, Ice Cream, BBQ & Grilling Meats, Bag Snacks";
+  return                   "Soft Drinks, Ice Cream, BBQ & Grilling Meats, Fresh Produce & Salads";
 }
 
 function getHeroPairings(avgTemp: number): string {
@@ -235,7 +229,6 @@ function getHeroPairings(avgTemp: number): string {
       "- Ice Cream + Cones: 51% co-purchase rate"
     ].join("\n");
   }
-  // Mild (12–20°C)
   return "- Produce + Dressing: 42% co-purchase rate";
 }
 
@@ -260,37 +253,35 @@ function buildPitchPrompt(
   );
 
   const unified = readUnifiedSignal();
-  const basket = unified?.basket_analysis as Record<string, unknown> | undefined;
-  const soup = (basket?.soup_companions as Array<{ product?: string; pct_of_soup_baskets?: number }> | undefined) ?? [];
-  const soupLines = soup.slice(0, 6).map((s) => `- ${s.product ?? "?"}: ${s.pct_of_soup_baskets ?? "?"}% of soup baskets`).join("\n");
-  const cross = (basket?.top_cross_dept_pairs as Array<{ pair?: string; lift?: number }> | undefined) ?? [];
+  const basket  = unified?.basket_analysis as Record<string, unknown> | undefined;
+  const soup    = (basket?.soup_companions as Array<{ product?: string; pct_of_soup_baskets?: number }> | undefined) ?? [];
+  const soupLines  = soup.slice(0, 6).map((s) => `- ${s.product ?? "?"}: ${s.pct_of_soup_baskets ?? "?"}% of soup baskets`).join("\n");
+  const cross      = (basket?.top_cross_dept_pairs as Array<{ pair?: string; lift?: number }> | undefined) ?? [];
   const crossLines = cross.slice(0, 4).map((c) => `- ${c.pair ?? "?"}: ${c.lift ?? "?"}x lift`).join("\n");
 
-  const promo = unified?.promo_attribution as Record<string, unknown> | undefined;
-  const promoCats = (promo?.best_tactic_by_category as unknown[])?.length ?? 0;
-  const bestTier = (promo?.best_store_tier_for_activation as string) ?? "n/a";
+  const promo      = unified?.promo_attribution as Record<string, unknown> | undefined;
+  const promoCats  = (promo?.best_tactic_by_category as unknown[])?.length ?? 0;
+  const bestTier   = (promo?.best_store_tier_for_activation as string) ?? "n/a";
 
-  const el = unified?.price_elasticity as Record<string, unknown> | undefined;
-  const elasticN = ((el?.most_elastic_categories as unknown[]) ?? []).length;
+  const el         = unified?.price_elasticity as Record<string, unknown> | undefined;
+  const elasticN   = ((el?.most_elastic_categories as unknown[]) ?? []).length;
 
-  const demo = unified?.demographics as Record<string, unknown> | undefined;
-  const topSeg = demo?.top_soup_buyer_segment as Record<string, unknown> | undefined;
-  const demoLine = topSeg
+  const demo       = unified?.demographics as Record<string, unknown> | undefined;
+  const topSeg     = demo?.top_soup_buyer_segment as Record<string, unknown> | undefined;
+  const demoLine   = topSeg
     ? `Top soup-heavy segment: ${topSeg.age_group ?? "?"} / ${topSeg.income_group ?? "?"} (soup penetration ${topSeg.soup_penetration_pct ?? "?"}%).`
     : "Demographic soup segment: not available.";
 
-  const datasets = ((unified?.meta as Record<string, unknown> | undefined)?.datasets_used as string[] | undefined) ?? [];
+  const datasets   = ((unified?.meta as Record<string, unknown> | undefined)?.datasets_used as string[] | undefined) ?? [];
 
-  const threshold = options?.threshold ?? WEATHER_THRESHOLD;
-  const traffic = options?.trafficDisruption ?? "Unknown";
-  const retailTrend = options?.ontarioRetailTrend ?? null;
-
-  // avgTemp: prefer explicit option, then weatherData trigger, then threshold fallback
-  const avgTemp = options?.avgTemp ?? weatherData.trigger.avgTemp;
+  const threshold    = options?.threshold ?? WEATHER_THRESHOLD;
+  const traffic      = options?.trafficDisruption ?? "Unknown";
+  const retailTrend  = options?.ontarioRetailTrend ?? null;
+  const avgTemp      = options?.avgTemp ?? weatherData.trigger.avgTemp;
 
   const categoryFocus = getCategoryFocus(avgTemp);
-  const heroPairings = getHeroPairings(avgTemp);
-  const seasonLabel = getSeasonLabel(avgTemp);
+  const heroPairings  = getHeroPairings(avgTemp);
+  const seasonLabel   = getSeasonLabel(avgTemp);
 
   const trafficLine = traffic === "High"
     ? "GTA traffic disruption is HIGH today — highlight the appeal of staying warm indoors and convenience delivery."
@@ -426,8 +417,7 @@ app.post("/api/generate-pitch", async (req, res) => {
     }
 
     const avgTemp = (weatherData as any)?.trigger?.avgTemp ?? threshold ?? 12;
-
-    const prompt = buildPitchPrompt(city, weatherData, { avgTemp, threshold, trafficDisruption, ontarioRetailTrend });
+    const prompt  = buildPitchPrompt(city, weatherData, { avgTemp, threshold, trafficDisruption, ontarioRetailTrend });
 
     if (!process.env.GROQ_API_KEY) {
       res.status(503).json({ error: "GROQ_API_KEY is not set", prompt });
@@ -436,20 +426,20 @@ app.post("/api/generate-pitch", async (req, res) => {
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
+      model:       "llama-3.3-70b-versatile",
+      messages:    [{ role: "user", content: prompt }],
       temperature: 0.5,
-      max_tokens: 500
+      max_tokens:  500
     });
 
     const pitchText = completion.choices[0]?.message?.content?.trim() ?? "No pitch generated.";
     insertPitch.run({
       city,
-      created_at: new Date().toISOString(),
+      created_at:     new Date().toISOString(),
       trigger_status: weatherData.trigger.triggered ? "Triggered" : "Monitoring",
-      avg_temp: weatherData.trigger.avgTemp,
-      wet_days: weatherData.trigger.wetDays,
-      pitch_text: pitchText
+      avg_temp:       weatherData.trigger.avgTemp,
+      wet_days:       weatherData.trigger.wetDays,
+      pitch_text:     pitchText
     });
 
     res.json({ pitch: pitchText });
@@ -460,6 +450,9 @@ app.post("/api/generate-pitch", async (req, res) => {
 });
 
 // ── ROUTE: GET /api/statcan/ontario-retail ─────────────────
+// Fetches Ontario Total Retail Trade (Seasonally Adjusted, $thousands)
+// from StatCan Table 20-10-0056-01 via the TV page for up-to-date 2022-2026 data.
+// Ontario = memberId 10 in the table rows.
 
 app.get("/api/statcan/ontario-retail", async (_req, res) => {
   // Serve from cache if still fresh
@@ -468,48 +461,100 @@ app.get("/api/statcan/ontario-retail", async (_req, res) => {
   }
 
   try {
-    const statcanRes = await fetch(
-      "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
-      {
-        method: "POST",
+    // ── Step 1: fetch the WDS getCubeMetadata to get the vectorId for Ontario ──
+    // Table pid=20100056 → Ontario Total Retail (seasonally adjusted)
+    // We fetch latest 24 periods via the WDS getDataFromCubePidCoordAndLatestNPeriods endpoint.
+    // Ontario coordinate: 1.10.1.1.1.1.1.1.1.1  (member 10 = Ontario, adj=1, etc.)
+    // Using the vectorId we already know maps to this series: v52367110
+    // This vector is from table 20-10-0056-01 and returns monthly data from 2017 onwards.
+
+    const WDS_URL =
+      "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods";
+
+    const wdsBody = JSON.stringify([{ vectorId: 52367110, latestN: 36 }]);
+
+    let wdsOk = false;
+    let points: Array<{ refPer: string; value: number }> = [];
+
+    try {
+      const wdsRes = await fetch(WDS_URL, {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([{ vectorId: 32551248, latestN: 6 }]),
+        body:    wdsBody,
+        signal:  AbortSignal.timeout(8000),
+      });
+
+      if (wdsRes.ok) {
+        const raw = await wdsRes.json() as Array<{
+          object?: { vectorDataPoint?: Array<{ refPer: string; value: number }> };
+        }>;
+        const vdp = raw?.[0]?.object?.vectorDataPoint;
+        if (vdp && vdp.length > 0) {
+          points = vdp;
+          wdsOk  = true;
+        }
       }
-    );
-
-    if (!statcanRes.ok) {
-      throw new Error(`StatCan responded with status ${statcanRes.status}`);
+    } catch {
+      // WDS timed out or failed — fall through to TV-page scraper
     }
 
-    const raw = await statcanRes.json();
+    // ── Step 2: fall back to TV-page HTML scraper if WDS failed ──
+    if (!wdsOk) {
+      const tvRes = await fetch(
+        "https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=2010005601",
+        {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; CPG-Dashboard/1.0)" },
+          signal: AbortSignal.timeout(12000),
+        }
+      );
 
-    // StatCan WDS shape: Array<{ object: { vectorDataPoint: Array<{ refPer: string, value: number, scalarFactorCode: number }> } }>
-    const vectorData = raw?.[0]?.object?.vectorDataPoint as Array<{
-      refPer: string;
-      value: number;
-      scalarFactorCode?: number;
-    }> | undefined;
+      if (!tvRes.ok) throw new Error(`StatCan TV page responded with status ${tvRes.status}`);
 
-    if (!vectorData || vectorData.length === 0) {
-      throw new Error("Unexpected StatCan response shape");
+      const html = await tvRes.text();
+
+      // Extract date column headers (e.g. "September 2025", "January 2026")
+      const monthNames = "January|February|March|April|May|June|July|August|September|October|November|December";
+      const dateMatches = [...html.matchAll(new RegExp(`"value":"((?:${monthNames}) \\d{4})"`, "g"))];
+      const dates = dateMatches.map(m => m[1]);
+
+      // Find Ontario section — it appears after the Canada total row.
+      // The Ontario memberId is 10; we look for it by finding the block after
+      // the label "Ontario" appears as a row value.
+      const ontarioIdx = html.indexOf('"value":"Ontario"');
+      if (ontarioIdx === -1) throw new Error("Could not find Ontario row in StatCan TV page");
+
+      // After the Ontario label, grab the next N formattedValue entries
+      const afterOntario = html.slice(ontarioIdx);
+      const valMatches = [...afterOntario.matchAll(/"formattedValue":"([\d,]+)"/g)];
+
+      // Use whichever count is smaller (dates vs values found)
+      const count = Math.min(dates.length, valMatches.length, 24);
+      if (count === 0) throw new Error("No data values found in StatCan TV page");
+
+      // Values on the TV page are in thousands of dollars — convert to millions ($M)
+      for (let i = 0; i < count; i++) {
+        const rawVal = parseFloat(valMatches[i][1].replace(/,/g, ""));
+        // Convert YYYY Month label → YYYY-MM for consistency
+        const [monthName, year] = dates[i].split(" ");
+        const monthNum = new Date(`${monthName} 1, ${year}`).getMonth() + 1;
+        const refPer   = `${year}-${String(monthNum).padStart(2, "0")}`;
+        points.push({ refPer, value: Math.round(rawVal / 1000 * 10) / 10 }); // thousands → $M
+      }
     }
 
-    // Points arrive oldest-first; ensure correct order
-    const points = [...vectorData].sort((a, b) =>
-      a.refPer.localeCompare(b.refPer)
-    );
+    if (points.length === 0) throw new Error("No retail data points retrieved");
 
-    const unit = "$M"; // Vector 32551248 is in millions of dollars
+    // Sort oldest-first
+    const sorted = [...points].sort((a, b) => a.refPer.localeCompare(b.refPer));
 
-    const data: RetailDataPoint[] = points.map((p) => ({
-      period: p.refPer,   // e.g. "2026-01"
-      value: p.value,
-      unit,
+    const data: RetailDataPoint[] = sorted.map((p) => ({
+      period: p.refPer,
+      value:  p.value,
+      unit:   "$M",
     }));
 
-    const latestValue = data[data.length - 1].value;
-    const prevValue = data[data.length - 2]?.value ?? latestValue;
-
+    const latestValue  = data[data.length - 1].value;
+    const prevValue    = data[data.length - 2]?.value ?? latestValue;
     const changePercent =
       prevValue !== 0
         ? Math.round(((latestValue - prevValue) / prevValue) * 10000) / 100
@@ -518,16 +563,11 @@ app.get("/api/statcan/ontario-retail", async (_req, res) => {
     const trend: "up" | "down" | "flat" =
       changePercent > 0.1 ? "up" : changePercent < -0.1 ? "down" : "flat";
 
-    const payload: RetailResponse = {
-      data,
-      trend,
-      latestValue,
-      prevValue,
-      changePercent,
-    };
+    const payload: RetailResponse = { data, trend, latestValue, prevValue, changePercent };
 
     retailCache = { data: payload, fetchedAt: Date.now() };
     return res.json(payload);
+
   } catch (err) {
     console.error("[StatCan proxy] fetch failed:", err);
     return res.status(502).json({ error: "StatCan unavailable", data: [] });
@@ -537,20 +577,15 @@ app.get("/api/statcan/ontario-retail", async (_req, res) => {
 // ── ROUTE: GET /api/traffic/gta ────────────────────────────
 
 app.get("/api/traffic/gta", async (_req, res) => {
-  // Serve from cache if still fresh
   if (trafficCache && Date.now() - trafficCache.fetchedAt < TRAFFIC_CACHE_TTL_MS) {
     return res.json(trafficCache.data);
   }
 
   try {
-    const url511 =
-      "https://511on.ca/api/v2/get/event?lang=en&county=Peel&county=Toronto&county=York";
-
+    const url511 = "https://511on.ca/api/v2/get/event?lang=en&county=Peel&county=Toronto&county=York";
     const trafficRes = await fetch(url511);
 
-    if (!trafficRes.ok) {
-      throw new Error(`511 API responded with status ${trafficRes.status}`);
-    }
+    if (!trafficRes.ok) throw new Error(`511 API responded with status ${trafficRes.status}`);
 
     const events: Array<{
       Description?: string;
@@ -560,41 +595,31 @@ app.get("/api/traffic/gta", async (_req, res) => {
       IsActive?: boolean;
     }> = await trafficRes.json();
 
-    // Count only active incidents (filter defensively — some entries lack IsActive)
     const activeEvents = events.filter(
       (e) => e.IsActive === true || e.IsActive === undefined
     );
 
     const incidentCount = activeEvents.length;
-
     const disruptionLevel: "Low" | "Moderate" | "High" =
-      incidentCount <= 2
-        ? "Low"
-        : incidentCount <= 6
-        ? "Moderate"
-        : "High";
+      incidentCount <= 2 ? "Low" : incidentCount <= 6 ? "Moderate" : "High";
 
     const topEvents: TrafficEvent[] = activeEvents.slice(0, 4).map((e) => ({
       description: e.Description ?? "No description",
-      county: e.County ?? "Unknown",
-      road: e.RoadwayName ?? "Unknown",
+      county:      e.County      ?? "Unknown",
+      road:        e.RoadwayName ?? "Unknown",
     }));
 
-    const payload: TrafficResponse = {
-      incidentCount,
-      disruptionLevel,
-      topEvents,
-    };
-
+    const payload: TrafficResponse = { incidentCount, disruptionLevel, topEvents };
     trafficCache = { data: payload, fetchedAt: Date.now() };
     return res.json(payload);
+
   } catch (err) {
     console.error("[511 proxy] fetch failed:", err);
     const fallback: TrafficResponse = {
-      incidentCount: 0,
-      disruptionLevel: "Unknown",
-      topEvents: [],
-      error: "511 unavailable",
+      incidentCount:    0,
+      disruptionLevel:  "Unknown",
+      topEvents:        [],
+      error:            "511 unavailable",
     };
     return res.status(502).json(fallback);
   }
@@ -605,8 +630,8 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 });
 
 server.keepAliveTimeout = 0;
-server.on("error", (err) => console.error("Server error:", err));
+server.on("error",              (err) => console.error("Server error:", err));
 process.on("uncaughtException", (err) => console.error("Uncaught:", err));
-process.on("unhandledRejection", (err) => console.error("Unhandled:", err));
-process.on("exit", (code) => console.log("Process exiting with code:", code));
-process.on("beforeExit", (code) => console.log("Before exit, code:", code));
+process.on("unhandledRejection",(err) => console.error("Unhandled:", err));
+process.on("exit",              (code) => console.log("Process exiting with code:", code));
+process.on("beforeExit",        (code) => console.log("Before exit, code:", code));
