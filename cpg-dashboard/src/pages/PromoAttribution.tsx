@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
 import { useWeatherContext } from "./WeatherContext";
+import LastUpdated from "./LastUpdated";
 
 interface TacticRow {
   category: string;
@@ -71,6 +72,7 @@ function SortIcon({ dir }: { dir: SortDir | null }) {
 
 export default function PromoAttribution() {
   const { selectedCity, avgTemp, threshold } = useWeatherContext();
+  const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<PromoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,6 +87,7 @@ export default function PromoAttribution() {
         const json = await res.json();
         if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed");
         setData(json as PromoData);
+        setFetchedAt(Date.now());
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -123,8 +126,13 @@ export default function PromoAttribution() {
 
   return (
     <div style={S.page}>
-      <p style={S.eyebrow}>Signals</p>
-      <h2 style={S.h2}>Promo Attribution</h2>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <p style={{...S.eyebrow, marginBottom:4}}>Signals</p>
+          <h2 style={{...S.h2, marginBottom:0}}>Promo Attribution</h2>
+        </div>
+        <LastUpdated fetchedAt={fetchedAt} />
+      </div>
 
       {/* ── Live context banner from Dashboard ── */}
       <div style={{
