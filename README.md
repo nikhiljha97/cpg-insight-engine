@@ -265,7 +265,19 @@ committed `output/*.json` is not wiped; always runs **12** (retail JSON) then **
 
 ```bash
 python scripts/run_pipeline.py
+# or: make pipeline
 ```
+
+### Automation (GitHub Actions)
+
+You do not need to run each script by hand on your laptop for routine refreshes.
+
+- **`.github/workflows/pipeline.yml`** runs **`python scripts/run_pipeline.py`** on a **daily schedule** (06:15 UTC) and on **manual “Run workflow”**. If any committed **`output/*.json`** files change, the workflow **commits and pushes** them (message includes **`[skip ci]`** so the lint/build workflow is not re-fired for that commit).
+- **Optional secrets** (same repo → *Settings → Secrets and variables → Actions*), if your CSVs live in private git mirrors:
+  - **`CPG_DATA_CLONE_URL`** — `git clone` URL whose root contains `transaction_data.csv`, `product.csv`, etc. (sets **`CPG_DATA_DIR`** for the job).
+  - **`RETAIL_ANALYTICS_CLONE_URL`** — `git clone` URL whose root contains `grocery_data_*.csv` and related files (sets **`RETAIL_ANALYTICS_DIR`**).
+- For private clones, embed a **fine-scoped PAT** in the HTTPS URL or use a deploy key; see GitHub’s docs on cloning with authentication in Actions.
+- If **`main`** is **branch-protected** against direct pushes, allow **GitHub Actions** to push (or use a bypass rule); otherwise the commit step will fail while the pipeline itself still ran.
 
 ### 6. Test the Weather Trigger
 

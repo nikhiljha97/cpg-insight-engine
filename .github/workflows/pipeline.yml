@@ -1,0 +1,91 @@
+# Runs the full offline pipeline on a schedule (or manually) and pushes
+# refreshed output/*.json so deploys pick up new signals without local runs.
+#
+# Optional secrets (repo → Settings → Secrets):
+#   CPG_DATA_CLONE_URL          — git clone URL for Dunnhumby CSV folder (PAT in URL if private)
+#   RETAIL_ANALYTICS_CLONE_URL  — git clone URL for grocery_data_*.csv etc. (sibling layout)
+#
+# If secrets are unset, the runner still executes: retail JSON export, unified
+# patch or rebuild, and the weather trigger (same as local without CSVs).
+
+name: Analytics pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 06:15 UTC daily — after StatCan open data windows; adjust as needed
+    - cron: "15 6 * * *"
+
+concurrency:
+  group: analytics-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout engine repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Optional Dunnhumby Complete Journey CSVs
+        env:
+          CLONE_URL: ${{ secrets.CPG_DATA_CLONE_URL }}
+        run: |
+          set -e
+          if [ -z "$CLONE_URL" ]; then
+            echo "CPG_DATA_CLONE_URL not set — pipeline will skip 02–09 if CSVs are absent."
+            exit 0
+          fi
+          PARENT="$(dirname "$GITHUB_WORKSPACE")"
+          TARGET="$PARENT/dunnhumby-csvs"
+          if [ -d "$TARGET" ]; then rm -rf "$TARGET"; fi
+          git clone --depth 1 "$CLONE_URL" "$TARGET"
+          echo "CPG_DATA_DIR=$TARGET" >> "$GITHUB_ENV"
+
+      - name: Optional retail_analytics CSV bundle
+        env:
+          CLONE_URL: ${{ secrets.RETAIL_ANALYTICS_CLONE_URL }}
+        run: |
+          set -e
+          if [ -z "$CLONE_URL" ]; then
+            echo "RETAIL_ANALYTICS_CLONE_URL not set — using default path logic (often empty on CI)."
+            exit 0
+          fi
+          PARENT="$(dirname "$GITHUB_WORKSPACE")"
+          TARGET="$PARENT/retail_analytics"
+          if [ -d "$TARGET" ]; then rm -rf "$TARGET"; fi
+          git clone --depth 1 "$CLONE_URL" "$TARGET"
+          echo "RETAIL_ANALYTICS_DIR=$TARGET" >> "$GITHUB_ENV"
+
+      - name: Run pipeline
+        run: python scripts/run_pipeline.py
+
+      - name: Commit and push output JSON
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/*.json
+          if git diff --staged --quiet; then
+            echo "No changes under output/*.json — nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(data): refresh pipeline outputs [skip ci]"
+          git push
