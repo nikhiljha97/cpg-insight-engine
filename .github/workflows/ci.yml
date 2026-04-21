@@ -1,0 +1,46 @@
+# Lightweight checks on every push / PR to main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax-check pipeline scripts
+        run: |
+          python -m py_compile \
+            retail_analytics_signals.py \
+            10_unified_signal.py \
+            11_merge_retail_analytics.py \
+            12_export_retail_analytics_json.py \
+            scripts/run_pipeline.py
+
+  dashboard-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cpg-dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: cpg-dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run build
