@@ -1100,8 +1100,45 @@ export default function Dashboard() {
                     ? kpi.coldTriggered
                       ? "Comfort / wet window"
                       : "Summer / dry window"
-                    : `${kpi.wetDays} wet-type day(s) in slice · tune sliders vs ${kpi.avgTemp.toFixed(1)}°C avg`}
+                    : (() => {
+                        if (kpi.avgTemp < kpi.threshold && kpi.wetDays < 1) {
+                          return `Avg ${kpi.avgTemp.toFixed(1)}°C is below your ${kpi.threshold}°C cut — cold lane still needs ≥1 wet day (slice has ${kpi.wetDays}).`;
+                        }
+                        return `${kpi.wetDays} wet day(s) in slice · ${kpi.avgTemp.toFixed(1)}°C avg vs cold &lt;${kpi.threshold}° / hot &gt;${kpi.hotThreshold}°`;
+                      })()}
                 </span>
+                {!kpi.anyTriggered && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      paddingTop: 10,
+                      borderTop: "1px solid #334155",
+                      fontSize: 11,
+                      color: "#94a3b8",
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: "#cbd5e1", marginBottom: 4 }}>Lane gates (sliders update the ✓/✗)</div>
+                    <div>
+                      <span style={{ color: "#7dd3fc" }}>Cold</span>: avg &lt; {kpi.threshold}°{" "}
+                      <strong style={{ color: kpi.avgTemp < kpi.threshold ? "#34d399" : "#f87171" }}>
+                        {kpi.avgTemp < kpi.threshold ? "✓" : "✗"}
+                      </strong>
+                      {" · "}
+                      wet days ≥ 1{" "}
+                      <strong style={{ color: kpi.wetDays > 0 ? "#34d399" : "#f87171" }}>{kpi.wetDays > 0 ? "✓" : "✗"}</strong>
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <span style={{ color: "#fdba74" }}>Hot</span>: avg &gt; {kpi.hotThreshold}°{" "}
+                      <strong style={{ color: kpi.avgTemp > kpi.hotThreshold ? "#34d399" : "#f87171" }}>
+                        {kpi.avgTemp > kpi.hotThreshold ? "✓" : "✗"}
+                      </strong>
+                      {" · "}
+                      wet days = 0{" "}
+                      <strong style={{ color: kpi.wetDays === 0 ? "#34d399" : "#f87171" }}>{kpi.wetDays === 0 ? "✓" : "✗"}</strong>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="kpi-card">
