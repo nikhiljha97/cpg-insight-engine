@@ -8,7 +8,7 @@
       "Local retail_analytics folder (retail_analytics)"
     ],
     "last_updated": "2026-04-14T02:03:11.834824",
-    "retail_analytics_merged_at": "2026-04-21T13:10:45.383550"
+    "retail_analytics_merged_at": "2026-04-21T13:13:52.609274"
   },
   "basket_analysis": {
     "soup_companions": [
@@ -873,7 +873,7 @@
   },
   "retail_analytics": {
     "source_folder_name": "retail_analytics",
-    "merged_at": "2026-04-21T13:10:45.383550",
+    "merged_at": "2026-04-21T13:13:52.609274",
     "grocery_listings_by_month": [
       {
         "month": "2025-04",
