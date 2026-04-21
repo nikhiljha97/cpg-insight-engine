@@ -13,11 +13,15 @@ type BasketInsights = {
   scenarioLabel: string;
   anchor: { key: string; label: string; rationale: string };
   thresholdUsed: number;
+  hotThresholdUsed?: number;
   trigger: {
     triggered: boolean;
+    coldTriggered?: boolean;
+    hotTriggered?: boolean;
     avgTemp: number;
     wetDays: number;
     threshold: number;
+    hotThreshold?: number;
     windowDates: string[];
   };
   companions: Array<{ product: string; pct: number }>;
@@ -36,7 +40,8 @@ type BasketInsights = {
 };
 
 export default function BasketAnalysis() {
-  const { selectedCity, setSelectedCity, threshold, demandCategory, setDemandCategory } = useWeatherContext();
+  const { selectedCity, setSelectedCity, threshold, hotThreshold, demandCategory, setDemandCategory } =
+    useWeatherContext();
   const [cities, setCities] = useState<City[]>([]);
   const [data, setData] = useState<BasketInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +70,7 @@ export default function BasketAnalysis() {
       const q = new URLSearchParams({
         city: selectedCity,
         threshold: String(threshold),
+        hotThreshold: String(hotThreshold),
         category: demandCategory,
       });
       const res = await fetch(apiUrl(`/api/basket-insights?${q.toString()}`));
@@ -78,7 +84,7 @@ export default function BasketAnalysis() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCity, threshold, demandCategory]);
+  }, [selectedCity, threshold, hotThreshold, demandCategory]);
 
   useEffect(() => {
     void loadInsights();
@@ -109,8 +115,11 @@ export default function BasketAnalysis() {
             <p className="muted" style={{ marginTop: 8, maxWidth: 640 }}>
               <strong>{data.city}</strong> · calendar <strong>{data.season}</strong> ·{" "}
               <strong>{data.scenarioLabel}</strong> · 3-day avg{" "}
-              <strong>{data.trigger.avgTemp}°C</strong> (threshold {data.thresholdUsed}°C, wet days{" "}
-              {data.trigger.wetDays})
+              <strong>{data.trigger.avgTemp}°C</strong> (cold below {data.thresholdUsed}°C, hot above{" "}
+              {data.hotThresholdUsed ?? data.trigger.hotThreshold ?? "—"}°C, wet-type days{" "}
+              {data.trigger.wetDays}
+              {data.trigger.coldTriggered ? " · cold lane on" : ""}
+              {data.trigger.hotTriggered ? " · hot lane on" : ""})
             </p>
           )}
         </div>

@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { apiUrl } from "../api";
+import React from "react";
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const S = {
@@ -273,319 +272,6 @@ const TechItem: React.FC<TechItemProps> = ({ label, value, description }) => (
   </div>
 );
 
-type CatalogDataset = {
-  id: string;
-  name: string;
-  role: string;
-  kaggle_url: string;
-  notes?: string;
-};
-
-const linkStyle: React.CSSProperties = {
-  color: "#22d3ee",
-  fontWeight: 600,
-  textDecoration: "none",
-};
-
-/** Live list from /api/datasets + meta.datasets_used from unified_signal.json */
-type GroceryMonthRow = {
-  month?: string;
-  mean_list_price?: number;
-  median_list_price?: number;
-  rows_used?: number;
-  rows_cap?: number;
-  file?: string;
-  error?: string;
-};
-
-type RetailAnalyticsBlock = {
-  source_folder_name?: string;
-  merged_at?: string;
-  grocery_listings_by_month?: GroceryMonthRow[];
-  supermarket_sales?: {
-    total_revenue?: number;
-    rows?: number;
-    revenue_by_region?: Array<{ region: string; revenue: number }>;
-    error?: string;
-  };
-  toronto_daily_weather_file?: {
-    date_min?: string;
-    date_max?: string;
-    rows?: number;
-    last_90_days?: { avg_temp_c?: number; total_precip_mm?: number };
-    error?: string;
-  };
-  macro_cma?: {
-    cpi?: { latest_period?: string; value?: number | null; city?: string };
-    unemployment_rate?: { latest_period?: string; value?: number | null; city?: string };
-  };
-  other_csv_inventory?: Array<{ file: string; size_mb: number }>;
-};
-
-const DataSourcesSection: React.FC = () => {
-  const [catalog, setCatalog] = useState<CatalogDataset[] | null>(null);
-  const [datasetsUsed, setDatasetsUsed] = useState<string[] | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [retailMergedAt, setRetailMergedAt] = useState<string | null>(null);
-  const [retailAnalytics, setRetailAnalytics] = useState<RetailAnalyticsBlock | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [unifiedError, setUnifiedError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      setLoading(true);
-      setCatalogError(null);
-      setUnifiedError(null);
-
-      const [catRes, uniRes] = await Promise.all([
-        fetch(apiUrl("/api/datasets")),
-        fetch(apiUrl("/api/signals/unified")),
-      ]);
-
-      if (!cancelled) {
-        if (catRes.ok) {
-          try {
-            const body = (await catRes.json()) as { datasets?: CatalogDataset[] };
-            setCatalog(Array.isArray(body.datasets) ? body.datasets : []);
-          } catch {
-            setCatalogError("Could not parse datasets catalog.");
-            setCatalog([]);
-          }
-        } else {
-          setCatalogError(catRes.status === 404 ? "Catalog file not on server." : `Catalog HTTP ${catRes.status}`);
-          setCatalog([]);
-        }
-
-        if (uniRes.ok) {
-          try {
-            const uni = (await uniRes.json()) as {
-              meta?: {
-                datasets_used?: string[];
-                last_updated?: string;
-                retail_analytics_exported_at?: string;
-                retail_analytics_merged_at?: string;
-              };
-              retail_analytics?: RetailAnalyticsBlock;
-            };
-            const used = uni.meta?.datasets_used;
-            setDatasetsUsed(Array.isArray(used) ? used : []);
-            const lu = uni.meta?.last_updated;
-            setLastUpdated(typeof lu === "string" ? lu : null);
-            const rma = uni.meta?.retail_analytics_exported_at ?? uni.meta?.retail_analytics_merged_at;
-            setRetailMergedAt(typeof rma === "string" ? rma : null);
-            setRetailAnalytics(uni.retail_analytics ?? null);
-          } catch {
-            setUnifiedError("Could not parse unified signal.");
-            setDatasetsUsed([]);
-          }
-        } else {
-          setUnifiedError(
-            uniRes.status === 404
-              ? "unified_signal.json not deployed on this host."
-              : `Unified signal HTTP ${uniRes.status}`
-          );
-          setDatasetsUsed([]);
-          setRetailMergedAt(null);
-          setRetailAnalytics(null);
-        }
-        setLoading(false);
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return (
-    <div style={S.section}>
-      <div style={S.eyebrow}>Provenance</div>
-      <h2 style={S.h2}>Data sources &amp; Kaggle catalog</h2>
-      <p style={{ ...S.body, marginBottom: 24 }}>
-        Raw Dunnhumby CSVs are not shipped in this repo (they stay on your machine after you
-        download from Kaggle). The dashboard reads the pre-built{" "}
-        <span style={S.accentCyan}>unified_signal.json</span> from the server. Below: what this
-        deployment&apos;s bundle contains, plus the curated Kaggle links used in the offline
-        pipeline.
-      </p>
-
-      {loading && (
-        <div style={S.card}>
-          <p style={S.bodyPrimary}>Loading catalog…</p>
-        </div>
-      )}
-
-      {!loading && (
-        <div style={{ display: "grid", gap: 20 }}>
-          <div style={S.card}>
-            <h3 style={S.h3}>In this deployed build</h3>
-            {unifiedError && (
-              <p style={{ ...S.body, color: "#fbbf24", marginBottom: 12 }}>{unifiedError}</p>
-            )}
-            {!unifiedError && datasetsUsed && datasetsUsed.length > 0 ? (
-              <>
-                {lastUpdated && (
-                  <p style={{ ...S.body, marginBottom: 16 }}>
-                    <span style={S.accentGreen}>Last compiled:</span>{" "}
-                    {new Date(lastUpdated).toLocaleString("en-CA", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </p>
-                )}
-                <ul style={{ ...S.body, margin: 0, paddingLeft: 22, lineHeight: 1.85 }}>
-                  {datasetsUsed.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              !unifiedError && (
-                <p style={S.body}>
-                  No <code style={{ color: "#94a3b8" }}>meta.datasets_used</code> entries returned.
-                </p>
-              )
-            )}
-          </div>
-
-          {retailAnalytics && (
-            <div style={S.card}>
-              <h3 style={S.h3}>Local retail_analytics merge</h3>
-              <p style={{ ...S.body, marginBottom: 12 }}>
-                Summaries from CSVs in your <span style={S.accentCyan}>retail_analytics</span> workspace, merged by{" "}
-                <code style={{ color: "#94a3b8" }}>python 11_merge_retail_analytics.py</code> into the unified signal.
-              </p>
-              {retailAnalytics.source_folder_name && (
-                <p style={{ ...S.body, fontSize: 14, marginBottom: 12 }}>
-                  <span style={S.accentGreen}>Source folder:</span> {retailAnalytics.source_folder_name}
-                </p>
-              )}
-              {retailMergedAt && (
-                <p style={{ ...S.body, fontSize: 14, marginBottom: 16 }}>
-                  <span style={S.accentGreen}>Exported / merged at:</span>{" "}
-                  {new Date(retailMergedAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
-                </p>
-              )}
-
-              {retailAnalytics.grocery_listings_by_month && retailAnalytics.grocery_listings_by_month.length > 0 && (
-                <>
-                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Grocery listing prices (capped rows / month)</div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, color: "#94a3b8" }}>
-                      <thead>
-                        <tr style={{ textAlign: "left", borderBottom: "1px solid #334155" }}>
-                          <th style={{ padding: "6px 8px" }}>Month</th>
-                          <th style={{ padding: "6px 8px" }}>Mean price</th>
-                          <th style={{ padding: "6px 8px" }}>Rows used</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {retailAnalytics.grocery_listings_by_month.map((row) => (
-                          <tr key={row.month ?? row.file} style={{ borderBottom: "1px solid #1e293b" }}>
-                            <td style={{ padding: "6px 8px", color: "#e2e8f0" }}>{row.month ?? row.file}</td>
-                            <td style={{ padding: "6px 8px" }}>
-                              {row.error ? (
-                                <span style={{ color: "#fbbf24" }}>{row.error}</span>
-                              ) : (
-                                (row.mean_list_price ?? "—").toString()
-                              )}
-                            </td>
-                            <td style={{ padding: "6px 8px" }}>{row.rows_used ?? "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-
-              {retailAnalytics.supermarket_sales && !retailAnalytics.supermarket_sales.error && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Supermarket pipeline (sample CSV)</div>
-                  <p style={S.body}>
-                    Total revenue <strong style={{ color: "#e2e8f0" }}>{retailAnalytics.supermarket_sales.total_revenue}</strong> across{" "}
-                    <strong style={{ color: "#e2e8f0" }}>{retailAnalytics.supermarket_sales.rows}</strong> rows.
-                  </p>
-                  <ul style={{ ...S.body, margin: "8px 0 0", paddingLeft: 20 }}>
-                    {(retailAnalytics.supermarket_sales.revenue_by_region ?? []).slice(0, 6).map((r) => (
-                      <li key={r.region}>
-                        {r.region}: {r.revenue}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {retailAnalytics.toronto_daily_weather_file && !retailAnalytics.toronto_daily_weather_file.error && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Toronto daily weather file</div>
-                  <p style={S.body}>
-                    {retailAnalytics.toronto_daily_weather_file.date_min} → {retailAnalytics.toronto_daily_weather_file.date_max} (
-                    {retailAnalytics.toronto_daily_weather_file.rows} rows). Last 90 rows: avg temp{" "}
-                    {retailAnalytics.toronto_daily_weather_file.last_90_days?.avg_temp_c ?? "—"}°C, precip sum{" "}
-                    {retailAnalytics.toronto_daily_weather_file.last_90_days?.total_precip_mm ?? "—"} mm.
-                  </p>
-                </div>
-              )}
-
-              {(retailAnalytics.macro_cma?.cpi?.value != null ||
-                retailAnalytics.macro_cma?.unemployment_rate?.value != null) && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Greater Toronto macro (CMA tables)</div>
-                  <ul style={{ ...S.body, margin: 0, paddingLeft: 20 }}>
-                    {retailAnalytics.macro_cma?.cpi?.value != null && (
-                      <li>
-                        CPI ({retailAnalytics.macro_cma?.cpi?.latest_period}): {retailAnalytics.macro_cma?.cpi?.value}
-                      </li>
-                    )}
-                    {retailAnalytics.macro_cma?.unemployment_rate?.value != null && (
-                      <li>
-                        Unemployment ({retailAnalytics.macro_cma?.unemployment_rate?.latest_period}):{" "}
-                        {retailAnalytics.macro_cma?.unemployment_rate?.value}%
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={S.card}>
-            <h3 style={S.h3}>Kaggle source catalog</h3>
-            {catalogError && (
-              <p style={{ ...S.body, color: "#fbbf24", marginBottom: 12 }}>{catalogError}</p>
-            )}
-            {catalog && catalog.length > 0 ? (
-              <div style={{ display: "grid", gap: 18 }}>
-                {catalog.map((d, idx) => (
-                  <div
-                    key={d.id}
-                    style={{
-                      borderBottom: idx < catalog.length - 1 ? "1px solid #334155" : "none",
-                      paddingBottom: idx < catalog.length - 1 ? 16 : 0,
-                    }}
-                  >
-                    <div style={{ ...S.techLabel, marginBottom: 6 }}>{d.role}</div>
-                    <div style={{ ...S.stepTitle, marginBottom: 6 }}>{d.name}</div>
-                    {d.notes && <p style={{ ...S.body, marginBottom: 10 }}>{d.notes}</p>}
-                    <a href={d.kaggle_url} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-                      View on Kaggle →
-                    </a>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              !catalogError && <p style={S.body}>No catalog entries.</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const About: React.FC = () => {
@@ -602,7 +288,7 @@ const About: React.FC = () => {
           <span style={S.accentGreen}>200M+ real retail transactions</span> from
           Dunnhumby's public research datasets. Designed for brand managers and
           retail media buyers navigating Canadian grocery markets — it
-          automatically detects cold-weather demand windows and generates
+          automatically detects cold-wet and hot-dry demand windows and generates
           ready-to-present promotional pitches, backed by actual transaction
           data on promo lift, price elasticity, household demographics, and
           basket composition.
@@ -628,12 +314,16 @@ const About: React.FC = () => {
               cold, wet weather reliably spikes demand
             </span>{" "}
             for comfort categories — soup, hot beverages, pasta, baking
-            ingredients. These demand windows are predictable days in advance
-            from a free weather API.
+            ingredients — while{" "}
+            <span style={S.accentYellow}>
+              hot, dry stretches tilt baskets
+            </span>{" "}
+            toward beverages, ice cream, BBQ, and outdoor snacking. These windows
+            are predictable days in advance from a free weather API.
           </p>
           <p style={S.body}>
             This engine closes that gap. It watches the 7-day forecast, detects
-            qualifying cold-and-wet windows automatically, and produces a{" "}
+            qualifying cold-wet and hot-dry windows automatically, and produces a{" "}
             <span style={S.accentGreen}>
               data-backed retail activation proposal
             </span>{" "}
@@ -658,22 +348,22 @@ const About: React.FC = () => {
           <Step
             number={2}
             title="Live 7-day forecast fetched from Open-Meteo"
-            description="The engine calls the Open-Meteo free API — no API key required. It pulls daily max/min temperature and precipitation probability for each of the next 7 days."
+            description="The engine calls the Open-Meteo free API — no API key required. It pulls daily max/min temperature, daily precipitation totals, WMO weather codes, and labels for each of the next 7 days."
           />
           <Step
             number={3}
-            title="Engine checks days 2–4 for trigger conditions"
-            description="If the average temperature across the 3-day window falls below your threshold AND at least one of those days has a precipitation probability above 40%, the trigger fires — displaying a red TRIGGERED badge."
+            title="Engine checks the next 3 forecast days (days 2–4) for lane rules"
+            description="Cold lane: average temperature is below your cold comfort slider AND at least one of those days has a wet-type WMO code (drizzle, rain, snow, thunderstorm families). Hot lane: average is above your hot summer slider AND none of those days are wet-type — a dry heat window. Either lane can light the activation badge."
           />
           <Step
             number={4}
-            title="Temperature slider lets you simulate any threshold"
-            description='The default trigger is 10°C, but you can drag the slider to any value. Useful for scenario-testing: "What if we only activate when it drops below 5°C?" or "Would 14°C catch shoulder-season windows?"'
+            title="Two sliders: cold comfort and hot summer"
+            description="Defaults are tuned for grocery context (cold near 10°C, hot near 26°C). Drag either slider to stress-test how often you would activate comfort promos versus summer/bev/BBQ plays."
           />
           <Step
             number={5}
             title="Click Generate Pitch → full retail activation proposal in seconds"
-            description="When the trigger is active, the Generate Pitch button calls the Groq LLM (llama-3.3-70b-versatile). It receives the weather data, city, threshold, and pre-computed data signals, then writes a complete brand manager pitch document — weather hook, promo strategy, KPIs, and risk section included."
+            description="When a lane is active, Generate Pitch calls the Groq LLM (llama-3.3-70b-versatile). It receives the forecast, city, both thresholds, lane flags, and pre-computed data signals, then writes a complete brand manager pitch — weather hook, promo strategy, KPIs, and risk section included."
           />
         </div>
       </div>
@@ -717,12 +407,6 @@ const About: React.FC = () => {
         </div>
       </div>
 
-      <hr style={S.divider} />
-
-      <DataSourcesSection />
-
-      <hr style={S.divider} />
-
       {/* ── 5. HOW TO USE IT ─────────────────────────────────────────────── */}
       <div style={S.section}>
         <div style={S.eyebrow}>Walkthrough</div>
@@ -740,14 +424,14 @@ const About: React.FC = () => {
           />
           <Step
             number={2}
-            title="Move the temperature slider to set your trigger sensitivity"
-            description="Start at the default (10°C). Lower it if you only want to activate on true cold snaps; raise it for earlier, more frequent triggers."
+            title="Move the cold and hot sliders to set each lane's sensitivity"
+            description="Cold controls comfort activations (needs wet-type codes in the 3-day slice). Hot controls summer-style activations (needs a dry window). Adjust both to match how aggressively your brand chases weather-tied media."
             badgeColor="#22d3ee"
           />
           <Step
             number={3}
-            title="If the trigger fires (red TRIGGERED badge), hit Generate Pitch"
-            description="The badge means the upcoming 3-day window meets your cold-and-wet criteria. Green means conditions don't yet warrant an activation."
+            title="If a lane fires (activation badge), hit Generate Pitch"
+            description="The badge means the upcoming 3-day slice hit either the cold-wet lane or the hot-dry lane. If neither lane is on, the engine stays in monitoring mode until the forecast shifts."
             badgeColor="#34d399"
           />
           <Step
@@ -779,6 +463,12 @@ const About: React.FC = () => {
             title="Use Demographics to identify WHICH households to target with loyalty coupons"
             description="Find the household segments with highest soup penetration. These are your highest-probability responders for a loyalty app coupon or personalized email offer — reducing wasted trade spend."
             badgeColor="#a78bfa"
+          />
+          <Step
+            number={9}
+            title="Use Query your data on the Dashboard for an interactive NLQ copilot"
+            description="Multi-turn chat over the unified signal (Groq). Ask follow-ups; the model stays grounded in the bundled JSON and can attach simple charts when useful. Requires GROQ_API_KEY on the server."
+            badgeColor="#22d3ee"
           />
         </div>
       </div>
@@ -822,7 +512,7 @@ const About: React.FC = () => {
           <TechItem
             label="AI / LLM"
             value="Groq — llama-3.3-70b-versatile"
-            description="Ultra-low latency inference. Full pitch document generated in under 3 seconds"
+            description="Pitch generation plus an interactive Dashboard copilot (NLQ) grounded in the unified signal — JSON-mode replies with optional charts"
           />
           <TechItem
             label="Frontend"

@@ -55,14 +55,32 @@ const S = {
   sectionTitle: { fontSize: 17, fontWeight: 800, color: "#f1f5f9", marginBottom: 16, marginTop: 0 },
 };
 
-function getWeatherContext(avgTemp: number, threshold: number): { label: string; color: string; tip: string } {
-  if (avgTemp < threshold) {
-    if (avgTemp < 5) return { label: "Freezing Cold", color: "#38bdf8", tip: "Maximum promo uplift window. Activate display + mailer combinations immediately." };
-    if (avgTemp < 12) return { label: "Cold Weather Active", color: "#22d3ee", tip: "Cold trigger fired. Comfort food promotions will outperform. Focus on Mainstream stores." };
-    return { label: "Cool — Near Threshold", color: "#fbbf24", tip: "Just below trigger. Light promo activation recommended for Pasta & Soup." };
+function getWeatherContext(
+  avgTemp: number,
+  threshold: number,
+  hotThreshold: number,
+  coldActive: boolean,
+  hotActive: boolean
+): { label: string; color: string; tip: string } {
+  if (coldActive) {
+    if (avgTemp < 5) return { label: "Cold lane · freezing", color: "#38bdf8", tip: "Comfort promo lane is on. Stack display + mailer for soup, pasta, and hot beverages in Mainstream tiers." };
+    return { label: "Cold lane · active", color: "#22d3ee", tip: "Cold + wet window confirmed — lean into warmth bundles and loyalty offers on comfort categories." };
   }
-  if (avgTemp < 20) return { label: "Mild — Shoulder Season", color: "#94a3b8", tip: "No cold trigger. Everyday value promotions work best in mild conditions." };
-  return { label: "Warm Weather", color: "#f87171", tip: "Warm season: shift focus to Soft Drinks, Snacks, BBQ categories." };
+  if (hotActive) {
+    return {
+      label: "Hot lane · active",
+      color: "#fb923c",
+      tip: "Hot + dry window confirmed — rotate chilled sets, BBQ end-caps, and beverage coolers; digital reminders for pickup slots.",
+    };
+  }
+  if (avgTemp < threshold) {
+    return { label: "Cool — not wet enough", color: "#fbbf24", tip: "Below cold cut-off but dry spell — everyday value messaging until wet days return." };
+  }
+  if (avgTemp > hotThreshold) {
+    return { label: "Warm — wet mix", color: "#fde047", tip: "Above hot cut-off but rain/snow codes present — hot lane waits for a dry window." };
+  }
+  if (avgTemp < 20) return { label: "Mild — Shoulder Season", color: "#94a3b8", tip: "Between your cold and hot sliders. Everyday value and cross-category bundles outperform single deep discounts." };
+  return { label: "Warm Weather", color: "#f87171", tip: "Shift focus toward beverages, snacks, and grilling adjacencies as temperatures climb." };
 }
 
 function SortIcon({ dir }: { dir: SortDir | null }) {
@@ -71,7 +89,7 @@ function SortIcon({ dir }: { dir: SortDir | null }) {
 }
 
 export default function PromoAttribution() {
-  const { selectedCity, avgTemp, threshold } = useWeatherContext();
+  const { selectedCity, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive } = useWeatherContext();
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<PromoData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +119,7 @@ export default function PromoAttribution() {
   if (error) return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
   if (!data) return null;
 
-  const weatherCtx = getWeatherContext(avgTemp, threshold);
+  const weatherCtx = getWeatherContext(avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive);
   const tierScores = data.store_tier_lift_scores ?? {};
   const topTier = data.best_store_tier_for_activation;
 
@@ -150,7 +168,7 @@ export default function PromoAttribution() {
         <div>
           <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>Live Context from Dashboard</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>
-            {selectedCity} · {avgTemp.toFixed(1)}°C avg · Trigger at {threshold}°C
+            {selectedCity} · {avgTemp.toFixed(1)}°C avg · Cold below {threshold}°C · Hot above {hotThreshold}°C
           </div>
         </div>
         <div style={{

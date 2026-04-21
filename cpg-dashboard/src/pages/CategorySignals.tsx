@@ -11,8 +11,14 @@ import { getProfileForTemp, CategorySignal, WeatherProfile } from "../weatherCat
 interface CategorySignalsProps {
   /** Current average temperature in °C */
   avgTemp: number;
-  /** Threshold °C below which cold-weather promotions are triggered (informational, shown in header) */
+  /** Cold comfort cut-off °C (informational) */
   threshold: number;
+  /** Hot summer cut-off °C */
+  hotThreshold: number;
+  /** Cold-wet activation lane from Dashboard */
+  coldPromoActive: boolean;
+  /** Hot-dry activation lane from Dashboard */
+  hotPromoActive: boolean;
 }
 
 // ─── Sub-Components ──────────────────────────────────────────────────────────
@@ -215,12 +221,16 @@ const SignalCard: React.FC<{ signal: CategorySignal }> = ({ signal }) => {
 
 // ─── Profile Header ───────────────────────────────────────────────────────────
 
-const ProfileHeader: React.FC<{ profile: WeatherProfile; avgTemp: number; threshold: number }> = ({
-  profile,
-  avgTemp,
-  threshold,
-}) => {
+const ProfileHeader: React.FC<{
+  profile: WeatherProfile;
+  avgTemp: number;
+  threshold: number;
+  hotThreshold: number;
+  coldPromoActive: boolean;
+  hotPromoActive: boolean;
+}> = ({ profile, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive }) => {
   const isBelowThreshold = avgTemp < threshold;
+  const isAboveHot = avgTemp > hotThreshold;
 
   return (
     <div style={{
@@ -270,19 +280,72 @@ const ProfileHeader: React.FC<{ profile: WeatherProfile; avgTemp: number; thresh
             }}>
               {avgTemp >= 0 ? "+" : ""}{avgTemp}°C
             </span>
-            {isBelowThreshold && (
-              <span style={{
-                backgroundColor: "rgba(59,130,246,0.15)",
-                border: "1px solid rgba(59,130,246,0.35)",
-                color: "#60a5fa",
-                fontSize: "0.62rem",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase" as const,
-                padding: "2px 7px",
-                borderRadius: "4px",
-              }}>
-                Below {threshold}°C threshold
+            {coldPromoActive && (
+              <span
+                style={{
+                  backgroundColor: "rgba(34,211,238,0.15)",
+                  border: "1px solid rgba(34,211,238,0.35)",
+                  color: "#22d3ee",
+                  fontSize: "0.62rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  padding: "2px 7px",
+                  borderRadius: "4px",
+                }}
+              >
+                Cold lane active
+              </span>
+            )}
+            {hotPromoActive && (
+              <span
+                style={{
+                  backgroundColor: "rgba(251,146,60,0.15)",
+                  border: "1px solid rgba(251,146,60,0.35)",
+                  color: "#fb923c",
+                  fontSize: "0.62rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  padding: "2px 7px",
+                  borderRadius: "4px",
+                }}
+              >
+                Hot lane active
+              </span>
+            )}
+            {!coldPromoActive && !hotPromoActive && isBelowThreshold && (
+              <span
+                style={{
+                  backgroundColor: "rgba(59,130,246,0.15)",
+                  border: "1px solid rgba(59,130,246,0.35)",
+                  color: "#60a5fa",
+                  fontSize: "0.62rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  padding: "2px 7px",
+                  borderRadius: "4px",
+                }}
+              >
+                Below {threshold}°C (not wet enough for cold lane)
+              </span>
+            )}
+            {!coldPromoActive && !hotPromoActive && isAboveHot && (
+              <span
+                style={{
+                  backgroundColor: "rgba(251,146,60,0.12)",
+                  border: "1px solid rgba(251,146,60,0.3)",
+                  color: "#fdba74",
+                  fontSize: "0.62rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  padding: "2px 7px",
+                  borderRadius: "4px",
+                }}
+              >
+                Above {hotThreshold}°C (wet days block hot lane)
               </span>
             )}
           </div>
@@ -326,7 +389,13 @@ const ProfileHeader: React.FC<{ profile: WeatherProfile; avgTemp: number; thresh
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const CategorySignals: React.FC<CategorySignalsProps> = ({ avgTemp, threshold }) => {
+const CategorySignals: React.FC<CategorySignalsProps> = ({
+  avgTemp,
+  threshold,
+  hotThreshold,
+  coldPromoActive,
+  hotPromoActive,
+}) => {
   const profile: WeatherProfile = useMemo(() => getProfileForTemp(avgTemp), [avgTemp]);
 
   return (
@@ -369,7 +438,14 @@ const CategorySignals: React.FC<CategorySignalsProps> = ({ avgTemp, threshold })
       </div>
 
       {/* Profile header */}
-      <ProfileHeader profile={profile} avgTemp={avgTemp} threshold={threshold} />
+      <ProfileHeader
+        profile={profile}
+        avgTemp={avgTemp}
+        threshold={threshold}
+        hotThreshold={hotThreshold}
+        coldPromoActive={coldPromoActive}
+        hotPromoActive={hotPromoActive}
+      />
 
       {/* Cards grid */}
       <div

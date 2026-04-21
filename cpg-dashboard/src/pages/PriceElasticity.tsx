@@ -77,21 +77,36 @@ function ElasticBar({ value }: { value: number }) {
   );
 }
 
-function getPricingAdvice(avgTemp: number, threshold: number): string {
-  if (avgTemp < threshold && avgTemp < 5) {
-    return "Freezing conditions: consumers are price-inelastic for comfort staples. Hold prices on Soup & Pasta — uplift comes from weather, not discounts. Reserve 15–30% off for Snacks and Cereal to drive basket size.";
+function getPricingAdvice(
+  avgTemp: number,
+  threshold: number,
+  hotThreshold: number,
+  coldActive: boolean,
+  hotActive: boolean
+): string {
+  if (coldActive) {
+    if (avgTemp < 5) {
+      return "Cold lane + freezing: comfort staples are price-inelastic. Hold prices on Soup & Pasta — uplift comes from weather, not discounts. Reserve 15–30% off for Snacks and Cereal to grow basket size.";
+    }
+    return "Cold lane active: Soup and Hot Beverages show reduced price sensitivity. A 5–15% promotion can expand baskets without sacrificing margin. Avoid deep cuts on cold-weather staples.";
   }
-  if (avgTemp < threshold) {
-    return "Cold trigger active: Soup and Hot Beverages show reduced price sensitivity. A 5–15% off promotion on these categories can drive basket expansion without sacrificing margin. Avoid deep discounts on cold-weather staples.";
+  if (hotActive) {
+    return "Hot lane active: Soft Drinks and Ice Cream are highly elastic. A 10–15% price drop can lift volume; BBQ Meats respond best to multi-buy bundles rather than straight discounts.";
   }
   if (avgTemp >= 20) {
     return "Warm season: Soft Drinks and Ice Cream are highly elastic in summer. A 10–15% price drop can significantly boost volume. BBQ Meats respond best to multi-buy bundles rather than straight discounts.";
+  }
+  if (avgTemp < threshold) {
+    return "Below your cold cut-off but not in the cold lane (needs wet codes). Moderate discounting (5–15% off) works across categories until a wet window appears.";
+  }
+  if (avgTemp > hotThreshold) {
+    return "Above your hot cut-off but wet codes are present — elasticity is mixed. Pair chilled displays with targeted digital offers instead of blanket deep discounts.";
   }
   return "Shoulder season: moderate discounting (5–15% off) works across most categories. Everyday value messaging outperforms deep promotional price cuts in mild weather.";
 }
 
 export default function PriceElasticity() {
-  const { selectedCity, avgTemp, threshold } = useWeatherContext();
+  const { selectedCity, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive } = useWeatherContext();
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<ElasticityData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,7 +156,7 @@ export default function PriceElasticity() {
     return discountSort.dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
   });
 
-  const tempColor = avgTemp < threshold ? "#22d3ee" : avgTemp >= 20 ? "#f87171" : "#94a3b8";
+  const tempColor = coldPromoActive ? "#22d3ee" : hotPromoActive ? "#fb923c" : avgTemp < threshold ? "#38bdf8" : avgTemp > hotThreshold ? "#f87171" : "#94a3b8";
 
   return (
     <div style={S.page}>
@@ -162,10 +177,10 @@ export default function PriceElasticity() {
         padding: "14px 20px",
         marginBottom: 20,
       }}>
-        <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Live Context — {selectedCity} · {avgTemp.toFixed(1)}°C avg · Trigger at {threshold}°C</div>
+        <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Live Context — {selectedCity} · {avgTemp.toFixed(1)}°C avg · Cold below {threshold}°C · Hot above {hotThreshold}°C</div>
         <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.6 }}>
           <strong style={{ color: "#f1f5f9" }}>Pricing strategy for current conditions: </strong>
-          {getPricingAdvice(avgTemp, threshold)}
+          {getPricingAdvice(avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive)}
         </div>
       </div>
 

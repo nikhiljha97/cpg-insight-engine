@@ -31,7 +31,8 @@ export default function App() {
               <p className="eyebrow">CPG Retail Analytics</p>
               <h1>Insight Engine</h1>
               <p className="sidebar-copy">
-                Weather-aware retail insights, basket analysis, and CPG pitch generation for Canadian markets.
+                Weather-aware retail insights with cold-wet and hot-dry lanes, basket analysis, and CPG pitch
+                generation for Canadian markets.
               </p>
             </div>
 

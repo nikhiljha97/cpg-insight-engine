@@ -5,6 +5,10 @@ import fs from "node:fs";
 import path from "node:path";
 import cors from "cors";
 import { isDemandCategory, type DemandCategory } from "../src/constants/demandCategories.js";
+import { computeWeatherActivations } from "../src/lib/weatherTriggers.js";
+import { buildMacroStrip } from "./macroStrip.js";
+import { runNlqStub } from "./nlqStub.js";
+import { buildNlqDataContext, nlqChatCompletion } from "./nlqChat.js";
 
 // ── Cache types ──────────────────────────────────────────────
 interface CacheEntry<T> { data: T; fetchedAt: number; }
@@ -36,6 +40,8 @@ type ForecastDay = {
 
 const PORT = Number(process.env.PORT) || 4000;
 const WEATHER_THRESHOLD = 12;
+/** °C — next 3-day avg above this with zero wet-code days ⇒ hot-dry promo window */
+const HOT_WEATHER_THRESHOLD_DEFAULT = 26;
 const DB_PATH = "cpg.db";
 const UNIFIED_SIGNAL_PATH = path.join(process.cwd(), "..", "output", "unified_signal.json");
 const KAGGLE_SOURCES_PATH = path.join(process.cwd(), "server", "kaggle_sources.json");
@@ -68,7 +74,6 @@ const wmo: Record<number, string> = {
   96: "Thunderstorm with hail", 99: "Heavy thunderstorm with hail"
 };
 
-const wetCodes = new Set([51, 53, 55, 61, 63, 65, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]);
 
 const basketData = {
   soupCompanions: [
@@ -155,15 +160,50 @@ function getWeatherEmoji(code: number): string {
   return "☀️";
 }
 
-function evaluateTrigger(forecast: ForecastDay[], threshold: number = WEATHER_THRESHOLD) {
-  const window = forecast.slice(1, 4);
-  const avgTemp  = Number((window.reduce((sum, day) => sum + day.tempAvg, 0) / window.length).toFixed(1));
-  const wetDays  = window.filter((day) => wetCodes.has(day.weatherCode)).length;
-  const windowDates = window.map((day) => day.date);
-  return { triggered: avgTemp < threshold && wetDays > 0, avgTemp, wetDays, threshold, windowDates };
+type ServerWeatherTrigger = {
+  triggered: boolean;
+  coldTriggered: boolean;
+  hotTriggered: boolean;
+  avgTemp: number;
+  wetDays: number;
+  /** Cold (comfort) cut-off °C */
+  threshold: number;
+  /** Hot (summer) cut-off °C */
+  hotThreshold: number;
+  windowDates: string[];
+};
+
+function evaluateWeatherActivations(
+  forecast: ForecastDay[],
+  coldThreshold: number = WEATHER_THRESHOLD,
+  hotThreshold: number = HOT_WEATHER_THRESHOLD_DEFAULT
+): ServerWeatherTrigger {
+  const act = computeWeatherActivations(forecast, coldThreshold, hotThreshold);
+  if (!act) {
+    return {
+      triggered: false,
+      coldTriggered: false,
+      hotTriggered: false,
+      avgTemp: 0,
+      wetDays: 0,
+      threshold: coldThreshold,
+      hotThreshold,
+      windowDates: []
+    };
+  }
+  return {
+    triggered: act.triggered,
+    coldTriggered: act.coldTriggered,
+    hotTriggered: act.hotTriggered,
+    avgTemp: act.avgTemp,
+    wetDays: act.wetDays,
+    threshold: act.coldThreshold,
+    hotThreshold: act.hotThreshold,
+    windowDates: act.windowDates
+  };
 }
 
-async function fetchWeather(city: City) {
+async function fetchWeather(city: City, coldThreshold: number, hotThreshold: number) {
   const params = new URLSearchParams({
     latitude:      String(city.lat),
     longitude:     String(city.lon),
@@ -202,12 +242,13 @@ async function fetchWeather(city: City) {
     };
   });
 
-  const trigger = evaluateTrigger(forecast);
+  const trigger = evaluateWeatherActivations(forecast, coldThreshold, hotThreshold);
   const windowSet = new Set(trigger.windowDates);
   const forecastWithWindow = forecast.map((day) => ({
     ...day,
     emoji: getWeatherEmoji(day.weatherCode),
-    inTriggerWindow: windowSet.has(day.date)
+    inTriggerWindow:
+      windowSet.has(day.date) && (trigger.coldTriggered || trigger.hotTriggered)
   }));
 
   return { forecast: forecastWithWindow, trigger };
@@ -261,7 +302,9 @@ function calendarSeasonFromIsoDate(dateStr: string): CalendarSeason {
   return "fall";
 }
 
-function deriveBasketScenario(trigger: ReturnType<typeof evaluateTrigger>): BasketScenario {
+function deriveBasketScenario(trigger: ServerWeatherTrigger): BasketScenario {
+  if (trigger.coldTriggered) return "cold_wet";
+  if (trigger.hotTriggered) return "warm_dry";
   const cold = trigger.avgTemp < trigger.threshold;
   const wet = trigger.wetDays > 0;
   if (cold && wet) return "cold_wet";
@@ -635,7 +678,7 @@ function formatRetailAnalyticsForPrompt(unified: Record<string, unknown> | null)
 
 function buildPitchPrompt(
   city: string,
-  weatherData: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> },
+  weatherData: { forecast: ForecastDay[]; trigger: ServerWeatherTrigger },
   options?: {
     avgTemp?: number;
     threshold?: number;
@@ -702,9 +745,12 @@ RETAIL CONTEXT
 --------------
 City: ${city}
 3-day average temperature: ${weatherData.trigger.avgTemp}C
-Custom trigger threshold set by user: ${threshold}C
-Trigger fired: ${weatherData.trigger.triggered ? "Yes" : "No"}
-Wet days in trigger window: ${weatherData.trigger.wetDays}
+Cold comfort threshold (user °C): ${weatherData.trigger.threshold}
+Hot activation threshold (user °C): ${weatherData.trigger.hotThreshold}
+Cold promo active (below cold threshold AND ≥1 wet-code day): ${weatherData.trigger.coldTriggered ? "Yes" : "No"}
+Hot promo active (above hot threshold AND zero wet-code days): ${weatherData.trigger.hotTriggered ? "Yes" : "No"}
+Any activation (cold OR hot): ${weatherData.trigger.triggered ? "Yes" : "No"}
+Wet-code days in 3-day window: ${weatherData.trigger.wetDays}
 Season window: ${seasonLabel}
 
 Forecast summary:
@@ -754,7 +800,17 @@ app.get("/api/cities", (_req, res) => {
 app.get("/api/weather", async (req, res) => {
   try {
     const city = getCityByName(typeof req.query.city === "string" ? req.query.city : undefined);
-    const weather = await fetchWeather(city);
+    let coldThreshold = WEATHER_THRESHOLD;
+    if (typeof req.query.threshold === "string") {
+      const t = Number(req.query.threshold);
+      if (Number.isFinite(t)) coldThreshold = t;
+    }
+    let hotThreshold = HOT_WEATHER_THRESHOLD_DEFAULT;
+    if (typeof req.query.hotThreshold === "string") {
+      const h = Number(req.query.hotThreshold);
+      if (Number.isFinite(h)) hotThreshold = h;
+    }
+    const weather = await fetchWeather(city, coldThreshold, hotThreshold);
     res.json({ city, ...weather });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown weather error";
@@ -783,18 +839,19 @@ app.get("/api/datasets", (_req, res) => {
 app.get("/api/basket-insights", async (req, res) => {
   try {
     const city = getCityByName(typeof req.query.city === "string" ? req.query.city : undefined);
-    const base = await fetchWeather(city);
-    let threshold = WEATHER_THRESHOLD;
+    let coldThreshold = WEATHER_THRESHOLD;
     if (typeof req.query.threshold === "string") {
       const t = Number(req.query.threshold);
-      if (Number.isFinite(t)) threshold = t;
+      if (Number.isFinite(t)) coldThreshold = t;
     }
-    const trigger = evaluateTrigger(base.forecast as ForecastDay[], threshold);
-    const windowSet = new Set(trigger.windowDates);
-    const forecast = base.forecast.map((day) => ({
-      ...day,
-      inTriggerWindow: windowSet.has(day.date)
-    }));
+    let hotThreshold = HOT_WEATHER_THRESHOLD_DEFAULT;
+    if (typeof req.query.hotThreshold === "string") {
+      const h = Number(req.query.hotThreshold);
+      if (Number.isFinite(h)) hotThreshold = h;
+    }
+    const base = await fetchWeather(city, coldThreshold, hotThreshold);
+    const trigger = base.trigger;
+    const forecast = base.forecast;
     const today = forecast[0]?.date ?? new Date().toISOString().slice(0, 10);
     const season = calendarSeasonFromIsoDate(today);
     const scenario = deriveBasketScenario(trigger);
@@ -840,7 +897,8 @@ app.get("/api/basket-insights", async (req, res) => {
       scenarioLabel,
       anchor,
       demandCategory: demandCategory ?? undefined,
-      thresholdUsed: threshold,
+      thresholdUsed: coldThreshold,
+      hotThresholdUsed: hotThreshold,
       trigger,
       forecast,
       companions,
@@ -870,6 +928,11 @@ app.get("/api/signals/unified", (_req, res) => {
   res.json(unified);
 });
 
+app.get("/api/signals/macro-strip", (_req, res) => {
+  const unified = readUnifiedSignal();
+  res.json(buildMacroStrip(unified));
+});
+
 app.get("/api/signals/promo", (_req, res) => {
   const unified = readUnifiedSignal();
   const promo = (unified?.promo_attribution as Record<string, unknown>) ?? {};
@@ -897,7 +960,7 @@ app.post("/api/generate-pitch", async (req, res) => {
   try {
     const { city, weatherData, threshold, trafficDisruption, ontarioRetailTrend } = req.body as {
       city?: string;
-      weatherData?: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> };
+      weatherData?: { forecast: ForecastDay[]; trigger: ServerWeatherTrigger };
       threshold?: number;
       trafficDisruption?: string;
       ontarioRetailTrend?: string;
@@ -925,12 +988,14 @@ app.post("/api/generate-pitch", async (req, res) => {
     });
 
     const pitchText = completion.choices[0]?.message?.content?.trim() ?? "No pitch generated.";
+    const tr = weatherData.trigger;
+    const status = tr.coldTriggered ? "Cold" : tr.hotTriggered ? "Hot" : "Monitoring";
     insertPitch.run({
       city,
       created_at:     new Date().toISOString(),
-      trigger_status: weatherData.trigger.triggered ? "Triggered" : "Monitoring",
-      avg_temp:       weatherData.trigger.avgTemp,
-      wet_days:       weatherData.trigger.wetDays,
+      trigger_status: status,
+      avg_temp:       tr.avgTemp,
+      wet_days:       tr.wetDays,
       pitch_text:     pitchText
     });
 
@@ -1130,6 +1195,55 @@ app.get("/api/traffic/gta", async (_req, res) => {
       error:            "511 unavailable",
     };
     return res.status(502).json(fallback);
+  }
+});
+
+// ── ROUTE: POST /api/nlq/stub (keyword NLQ, no LLM) ─────────
+
+app.post("/api/nlq/stub", (req, res) => {
+  const body = req.body as { query?: unknown } | undefined;
+  const query = typeof body?.query === "string" ? body.query : "";
+  const ontarioRetailSeries = ONTARIO_RETAIL_HISTORICAL.slice(-12).map((p) => ({
+    period: p.period,
+    value: p.value,
+  }));
+  const unified = readUnifiedSignal();
+  res.json(runNlqStub(query, { unified, ontarioRetailSeries }));
+});
+
+app.post("/api/nlq/chat", async (req, res) => {
+  try {
+    if (!process.env.GROQ_API_KEY) {
+      res.status(503).json({ error: "GROQ_API_KEY is not set" });
+      return;
+    }
+    const body = req.body as { messages?: unknown; city?: unknown };
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      res.status(400).json({ error: "messages (non-empty array) required" });
+      return;
+    }
+    const conv: Array<{ role: "user" | "assistant"; content: string }> = [];
+    for (const m of body.messages) {
+      if (!m || typeof m !== "object") continue;
+      const role = (m as { role?: string }).role;
+      const content = (m as { content?: unknown }).content;
+      if ((role === "user" || role === "assistant") && typeof content === "string" && content.trim()) {
+        conv.push({ role, content: content.trim() });
+      }
+    }
+    if (!conv.length) {
+      res.status(400).json({ error: "no valid user/assistant messages" });
+      return;
+    }
+    const city = typeof body.city === "string" ? body.city.trim() : undefined;
+    const unified = readUnifiedSignal();
+    const ontarioTrail = ONTARIO_RETAIL_HISTORICAL.slice(-18).map((p) => ({ period: p.period, value: p.value }));
+    const ctx = buildNlqDataContext(unified, ontarioTrail, city);
+    const out = await nlqChatCompletion(process.env.GROQ_API_KEY, ctx, conv);
+    res.json(out);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "NLQ chat error";
+    res.status(500).json({ error: message });
   }
 });
 

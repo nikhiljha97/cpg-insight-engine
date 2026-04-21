@@ -19,20 +19,24 @@ function mockWeatherPayload() {
     inTriggerWindow: false,
     emoji: "☁️",
   });
+  /* Days at indices 1–3 are the activation slice; include real precip + rain code so cold lane can go ON when cold slider is above the ~13°C 3-day avg. */
   const forecast = [
     mk("2030-06-01", 16, 0, 3),
-    mk("2030-06-02", 14, 0, 3),
-    mk("2030-06-03", 13, 0, 3),
+    mk("2030-06-02", 14, 2.5, 63),
+    mk("2030-06-03", 13, 0.2, 3),
     mk("2030-06-04", 12, 0, 3),
     mk("2030-06-05", 15, 0, 3),
     mk("2030-06-06", 17, 0, 3),
     mk("2030-06-07", 18, 0, 3),
   ];
   const trigger = {
-    triggered: false,
+    triggered: true,
+    coldTriggered: true,
+    hotTriggered: false,
     avgTemp: 13,
-    wetDays: 0,
+    wetDays: 2,
     threshold: 12,
+    hotThreshold: 26,
     windowDates: ["2030-06-02", "2030-06-03", "2030-06-04"],
   };
   return { city, forecast, trigger };
@@ -42,6 +46,36 @@ function mockWeatherPayload() {
  * Stub slow or flaky upstreams for the SPA. Basket / signals still hit the local API + repo JSON.
  */
 export async function installUpstreamMocks(page: Page): Promise<void> {
+  await page.route("**/api/signals/macro-strip*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        grocery: {
+          mergedAt: "2030-01-01T00:00:00Z",
+          latestMonth: "2030-05",
+          meanListPrice: 6.42,
+          medianListPrice: 4.99,
+          prevMonth: "2030-04",
+          prevMean: 6.55,
+          momPctMean: -2.0,
+          series: [
+            { month: "2030-01", mean: 6.9 },
+            { month: "2030-02", mean: 6.8 },
+            { month: "2030-03", mean: 6.7 },
+            { month: "2030-04", mean: 6.55 },
+            { month: "2030-05", mean: 6.42 },
+          ],
+        },
+        cpi: { value: 168.1, latest_period: "25-Jun", city: "Toronto" },
+      }),
+    });
+  });
+
   await page.route("**/api/weather*", async (route) => {
     if (route.request().method() !== "GET") {
       await route.continue();
@@ -83,6 +117,21 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
     });
   });
 
+  await page.route("**/api/nlq/chat", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        reply: "UAT copilot: **sample** answer (Groq mocked in Playwright).",
+        chart: null,
+      }),
+    });
+  });
+
   await page.route("**/api/basket-insights**", async (route) => {
     if (route.request().method() !== "GET") {
       await route.continue();
@@ -111,11 +160,15 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
         },
         demandCategory: category,
         thresholdUsed: 12,
+        hotThresholdUsed: 26,
         trigger: {
           triggered: false,
+          coldTriggered: false,
+          hotTriggered: false,
           avgTemp: 13,
           wetDays: 0,
           threshold: 12,
+          hotThreshold: 26,
           windowDates: ["2030-06-02", "2030-06-03", "2030-06-04"]
         },
         forecast: [],

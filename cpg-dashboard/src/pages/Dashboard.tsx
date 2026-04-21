@@ -1,5 +1,6 @@
 import { apiUrl } from "../api";
 import CategorySignals from "./CategorySignals";
+import NlqPanel from "../components/NlqPanel";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
@@ -8,6 +9,7 @@ import {
   DEMAND_CATEGORY_LIST,
   isDemandCategory,
 } from "../constants/demandCategories";
+import { computeWeatherActivations } from "../lib/weatherTriggers";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -25,9 +27,12 @@ type ForecastDay = {
 };
 type Trigger = {
   triggered: boolean;
+  coldTriggered?: boolean;
+  hotTriggered?: boolean;
   avgTemp: number;
   wetDays: number;
   threshold: number;
+  hotThreshold?: number;
   windowDates: string[];
 };
 type WeatherResponse = {
@@ -45,6 +50,21 @@ type TrafficEvent = {
   Description?: string;
   EventType?: string;
   County?: string;
+};
+
+type MacroStripGrocery = {
+  mergedAt?: string;
+  latestMonth: string;
+  meanListPrice: number;
+  medianListPrice?: number;
+  prevMonth?: string;
+  momPctMean: number | null;
+  series: Array<{ month: string; mean: number; median?: number }>;
+};
+
+type MacroStripPayload = {
+  grocery: MacroStripGrocery | null;
+  cpi: { value: number; latest_period: string; city?: string } | null;
 };
 
 type DisruptionLevel = "Low" | "Moderate" | "High";
@@ -74,11 +94,22 @@ function getDisruptionLevel(count: number): DisruptionLevel {
 
 function formatStatCanMonth(refPer: string): string {
   try {
-    const d = new Date(refPer + "T12:00:00Z");
+    const iso = refPer.length === 7 ? `${refPer}-01` : refPer;
+    const d = new Date(iso + (iso.includes("T") ? "" : "T12:00:00Z"));
     return d.toLocaleDateString("en-CA", { month: "short", year: "numeric", timeZone: "UTC" });
   } catch {
     return refPer;
   }
+}
+
+/** StatCan API returns Ontario totals in millions CAD — display whole millions. */
+function formatOntarioRetailMillionsCAD(value: number): string {
+  return `${Math.round(value).toLocaleString("en-CA")} M$`;
+}
+
+function formatOntarioRetailDeltaMillionsCAD(diff: number): string {
+  const r = Math.round(diff);
+  return `${r >= 0 ? "+" : ""}${r.toLocaleString("en-CA")} M$`;
 }
 
 /* ─── Skeleton ───────────────────────────────────────────────────────────── */
@@ -160,6 +191,11 @@ export default function Dashboard() {
     setAvgTemp,
     threshold,
     setThreshold,
+    hotThreshold,
+    setHotThreshold,
+    setWetDays,
+    setColdPromoActive,
+    setHotPromoActive,
     demandCategory,
     setDemandCategory,
   } = useWeatherContext();
@@ -184,6 +220,9 @@ export default function Dashboard() {
   const [trafficLoading, setTrafficLoading] = useState(true);
   const [trafficError, setTrafficError] = useState(false);
 
+  const [macroStrip, setMacroStrip] = useState<MacroStripPayload | null>(null);
+  const [macroLoading, setMacroLoading] = useState(true);
+
   const pitchRef = useRef<HTMLTextAreaElement>(null);
 
   /* ── Fetch cities ─────────────────────────────────────────────────────── */
@@ -200,7 +239,12 @@ export default function Dashboard() {
     setError("");
     setWeather(null);
     setPitch("");
-    fetch(apiUrl(`/api/weather?city=${encodeURIComponent(selectedCity)}`))
+    const q = new URLSearchParams({
+      city: selectedCity,
+      threshold: String(threshold),
+      hotThreshold: String(hotThreshold),
+    });
+    fetch(apiUrl(`/api/weather?${q.toString()}`))
       .then((r) => {
         if (!r.ok) throw new Error("Weather fetch failed");
         return r.json();
@@ -213,7 +257,27 @@ export default function Dashboard() {
         setError("Failed to load weather data. Please try again.");
         setLoading(false);
       });
-  }, [selectedCity]);
+  }, [selectedCity, threshold, hotThreshold]);
+
+  /* ── Sync shared weather activation flags (same rules as KPI / shared lib) ─ */
+  useEffect(() => {
+    if (!weather?.forecast?.length) return;
+    const act = computeWeatherActivations(
+      weather.forecast.map((d) => ({
+        date: d.date,
+        tempAvg: d.tempAvg,
+        weatherCode: d.weatherCode,
+        precipitationMm: d.precipitationMm,
+      })),
+      threshold,
+      hotThreshold
+    );
+    if (!act) return;
+    setAvgTemp(act.avgTemp);
+    setWetDays(act.wetDays);
+    setColdPromoActive(act.coldTriggered);
+    setHotPromoActive(act.hotTriggered);
+  }, [weather, threshold, hotThreshold, setAvgTemp, setWetDays, setColdPromoActive, setHotPromoActive]);
 
   /* ── Fetch StatCan retail index ───────────────────────────────────────── */
   useEffect(() => {
@@ -262,38 +326,98 @@ export default function Dashboard() {
       });
   }, []);
 
-  /* ── Client-side trigger re-evaluation ───────────────────────────────── */
-  const clientTrigger = useMemo(() => {
-    if (!weather) return null;
-    const window = weather.forecast.slice(1, 4);
-    if (!window.length) return null;
-    const avgTempVal =
-      window.reduce((s, d) => s + d.tempAvg, 0) / window.length;
-    const wetDays = window.filter((d) => d.precipitationMm > 0).length;
-    const triggered = avgTempVal < threshold && wetDays > 0;
-    return { triggered, avgTemp: avgTempVal, wetDays, threshold };
-  }, [weather, threshold]);
-
-  /* ── Push avgTemp to context so other pages can use it ──────────────── */
+  /* ── Unified retail_analytics macro strip (grocery + CPI) ───────────── */
   useEffect(() => {
-    if (clientTrigger) {
-      setAvgTemp(clientTrigger.avgTemp);
-      setFetchedAt(Date.now());
-    }
-  }, [clientTrigger, setAvgTemp]);
+    let cancelled = false;
+    setMacroLoading(true);
+    fetch(apiUrl("/api/signals/macro-strip"))
+      .then((r) => r.json())
+      .then((j: MacroStripPayload) => {
+        if (!cancelled) setMacroStrip(j);
+      })
+      .catch(() => {
+        if (!cancelled) setMacroStrip(null);
+      })
+      .finally(() => {
+        if (!cancelled) setMacroLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const tr = weather?.trigger ?? null;
+
+  /** Recompute lanes from live sliders + forecast so KPIs track slider moves (matches server lib). */
+  const activation = useMemo(() => {
+    if (!weather?.forecast?.length) return null;
+    return computeWeatherActivations(
+      weather.forecast.map((d) => ({
+        date: d.date,
+        tempAvg: d.tempAvg,
+        weatherCode: d.weatherCode,
+        precipitationMm: d.precipitationMm,
+      })),
+      threshold,
+      hotThreshold
+    );
+  }, [weather, threshold, hotThreshold]);
 
   /* ── KPI values ───────────────────────────────────────────────────────── */
   const kpi = useMemo(() => {
-    if (!weather || !clientTrigger)
-      return { triggered: false, avgTemp: 0, wetDays: 0, threshold, forecastDays: 0 };
+    if (!weather) {
+      return {
+        coldTriggered: false,
+        hotTriggered: false,
+        anyTriggered: false,
+        avgTemp: 0,
+        wetDays: 0,
+        threshold,
+        hotThreshold,
+        forecastDays: 0,
+      };
+    }
+    if (activation) {
+      return {
+        coldTriggered: activation.coldTriggered,
+        hotTriggered: activation.hotTriggered,
+        anyTriggered: activation.triggered,
+        avgTemp: activation.avgTemp,
+        wetDays: activation.wetDays,
+        threshold: activation.coldThreshold,
+        hotThreshold: activation.hotThreshold,
+        forecastDays: weather.forecast.length,
+      };
+    }
+    if (!tr) {
+      return {
+        coldTriggered: false,
+        hotTriggered: false,
+        anyTriggered: false,
+        avgTemp: 0,
+        wetDays: 0,
+        threshold,
+        hotThreshold,
+        forecastDays: weather.forecast.length,
+      };
+    }
+    const cold = tr.coldTriggered ?? (tr.triggered && tr.wetDays > 0);
+    const hot = tr.hotTriggered ?? false;
     return {
-      triggered: clientTrigger.triggered,
-      avgTemp: clientTrigger.avgTemp,
-      wetDays: clientTrigger.wetDays,
-      threshold,
+      coldTriggered: !!cold,
+      hotTriggered: !!hot,
+      anyTriggered: !!(cold || hot),
+      avgTemp: tr.avgTemp,
+      wetDays: tr.wetDays,
+      threshold: tr.threshold,
+      hotThreshold: tr.hotThreshold ?? hotThreshold,
       forecastDays: weather.forecast.length,
     };
-  }, [weather, clientTrigger, threshold]);
+  }, [weather, activation, tr, threshold, hotThreshold]);
+
+  useEffect(() => {
+    if (tr) setFetchedAt(Date.now());
+  }, [tr]);
 
   /* ── Disruption level ─────────────────────────────────────────────────── */
   const disruptionLevel: DisruptionLevel = useMemo(
@@ -303,9 +427,10 @@ export default function Dashboard() {
 
   /* ── Active demand band ───────────────────────────────────────────────── */
   const activeBandIdx = useMemo(() => {
-    if (!clientTrigger) return -1;
-    return getActiveBand(clientTrigger.avgTemp);
-  }, [clientTrigger]);
+    const temp = activation?.avgTemp ?? tr?.avgTemp;
+    if (temp == null || !Number.isFinite(temp)) return -1;
+    return getActiveBand(temp);
+  }, [tr, activation]);
 
   /* ── Selected category uplift values ────────────────────────────────── */
   const categoryUplift = CATEGORY_DEMAND[demandCategory];
@@ -320,12 +445,26 @@ export default function Dashboard() {
     setPitch("");
     setError("");
     try {
+      const mergedTrigger =
+        activation && weather
+          ? {
+              triggered: activation.triggered,
+              coldTriggered: activation.coldTriggered,
+              hotTriggered: activation.hotTriggered,
+              avgTemp: activation.avgTemp,
+              wetDays: activation.wetDays,
+              threshold: activation.coldThreshold,
+              hotThreshold: activation.hotThreshold,
+              windowDates: activation.windowDates,
+            }
+          : weather.trigger;
       const payload = {
         city: selectedCity,
         weatherData: {
           ...weather,
+          trigger: mergedTrigger,
           customThreshold: threshold,
-          clientTrigger,
+          hotThreshold,
           trafficDisruption: disruptionLevel,
         },
       };
@@ -355,9 +494,14 @@ export default function Dashboard() {
 
   /* ── Helpers ──────────────────────────────────────────────────────────── */
   function triggerBadgeForDay(day: ForecastDay): boolean {
-    if (!clientTrigger) return day.inTriggerWindow;
     const idx = weather?.forecast.indexOf(day) ?? -1;
-    return idx >= 1 && idx <= 3 && clientTrigger.triggered;
+    if (activation) {
+      return idx >= 1 && idx <= 3 && !!(activation.coldTriggered || activation.hotTriggered);
+    }
+    if (!tr) return day.inTriggerWindow;
+    const cold = tr.coldTriggered ?? (tr.triggered && tr.wetDays > 0);
+    const hot = tr.hotTriggered ?? false;
+    return idx >= 1 && idx <= 3 && !!(cold || hot);
   }
 
   const disruptionColor: Record<DisruptionLevel, string> = {
@@ -667,7 +811,7 @@ export default function Dashboard() {
               CPG Analytics Dashboard
             </h1>
             <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: "14px" }}>
-              Weather-driven demand signals · Ontario retail · GTA traffic
+              Weather demand · unified macro (listings + CPI) · Ontario retail · GTA traffic
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
@@ -694,6 +838,114 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ── Macro header strip (retail_analytics) ────────────────────── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
+          <div className="dash-card-sm" style={{ padding: "14px 18px" }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#64748b", textTransform: "uppercase" }}>
+              Retail analytics · sampled listings
+            </p>
+            {macroLoading ? (
+              <div style={{ marginTop: 12 }}>
+                <Skeleton w="70%" h={28} />
+                <Skeleton w="40%" h={16} />
+              </div>
+            ) : macroStrip?.grocery ? (
+              <>
+                <p style={{ margin: "10px 0 4px", fontSize: 22, fontWeight: 800, color: "#f1f5f9" }}>
+                  ${macroStrip.grocery.meanListPrice.toFixed(2)}{" "}
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#94a3b8" }}>mean</span>
+                  {macroStrip.grocery.medianListPrice != null && (
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>
+                      {" "}
+                      · ${macroStrip.grocery.medianListPrice.toFixed(2)} median
+                    </span>
+                  )}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>
+                  Latest month {formatStatCanMonth(macroStrip.grocery.latestMonth)}
+                  {macroStrip.grocery.momPctMean != null && macroStrip.grocery.prevMonth && (
+                    <>
+                      {" "}
+                      · MoM{" "}
+                      <span style={{ color: macroStrip.grocery.momPctMean <= 0 ? "#34d399" : "#f87171", fontWeight: 700 }}>
+                        {macroStrip.grocery.momPctMean >= 0 ? "+" : ""}
+                        {macroStrip.grocery.momPctMean}%
+                      </span>{" "}
+                      vs {formatStatCanMonth(macroStrip.grocery.prevMonth)}
+                    </>
+                  )}
+                </p>
+                {macroStrip.grocery.series.length > 1 && (
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 12, height: 40 }}>
+                    {(() => {
+                      const vals = macroStrip.grocery.series.map((s) => s.mean);
+                      const mx = Math.max(...vals, 1e-6);
+                      const trackPx = 36;
+                      return macroStrip.grocery.series.map((s) => (
+                        <div
+                          key={s.month}
+                          title={`${s.month}: $${s.mean.toFixed(2)}`}
+                          style={{
+                            flex: 1,
+                            minWidth: 4,
+                            height: Math.max(Math.round((s.mean / mx) * trackPx), 5),
+                            background: "#22d3ee",
+                            borderRadius: 3,
+                            opacity: 0.85,
+                          }}
+                        />
+                      ));
+                    })()}
+                  </div>
+                )}
+                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
+                  Kaggle-style monthly rollup in unified_signal (sample caps apply). Not a census of shelf prices.
+                </p>
+              </>
+            ) : (
+              <p style={{ margin: "12px 0 0", fontSize: 13, color: "#64748b" }}>
+                No grocery_listings_by_month in unified_signal — merge retail_analytics into the bundle.
+              </p>
+            )}
+          </div>
+
+          <div className="dash-card-sm" style={{ padding: "14px 18px" }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#64748b", textTransform: "uppercase" }}>
+              Greater Toronto · CPI (unified)
+            </p>
+            {macroLoading ? (
+              <div style={{ marginTop: 12 }}>
+                <Skeleton w="50%" h={32} />
+              </div>
+            ) : macroStrip?.cpi ? (
+              <>
+                <p style={{ margin: "10px 0 4px", fontSize: 26, fontWeight: 800, color: "#a78bfa" }}>
+                  {macroStrip.cpi.value}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>
+                  {macroStrip.cpi.city ?? "CMA"} · period {macroStrip.cpi.latest_period || "—"}
+                </p>
+                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
+                  Pulled from retail_analytics macro tables merged into unified_signal.json.
+                </p>
+              </>
+            ) : (
+              <p style={{ margin: "12px 0 0", fontSize: 13, color: "#64748b" }}>
+                No macro_cma.cpi block in unified_signal.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <NlqPanel />
+
         {/* ── Error banner ─────────────────────────────────────────────── */}
         {error && (
           <div
@@ -711,31 +963,25 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── Cold-Weather Promotion Trigger Slider ────────────────────── */}
+        {/* ── Cold + Hot weather activation sliders ───────────────────── */}
         <div className="dash-card" style={{ marginBottom: "20px" }}>
+          <p className="section-title" style={{ margin: "0 0 12px" }}>
+            Weather activation · next 3 forecast days (days 2–4)
+          </p>
+
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "12px",
+              marginBottom: "10px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <span className="section-title" style={{ margin: 0 }}>
-                Cold-Weather Promotion Trigger
-              </span>
-              <Tooltip text="This slider sets the temperature cut-off for activating cold-weather promotions. If the 3-day forecast average drops below this value AND at least one wet/rainy day is expected, the system fires an alert and recommends promoting comfort food categories like soup, hot beverages, and pasta. Drag left to be more aggressive, right to be more conservative." />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 700, color: "#e2e8f0" }}>Cold comfort cut-off</span>
+              <Tooltip text="If the 3-day average is below this cut-off AND at least one of those days is wet (WMO rain/snow/drizzle/thunder/fog codes, or daily precip ≥0.15 mm), the cold comfort lane turns on — soup, hot beverages, pasta, baking." />
             </div>
-            <span
-              style={{
-                fontSize: "20px",
-                fontWeight: 700,
-                color: "#3b82f6",
-              }}
-            >
-              {threshold}°C
-            </span>
+            <span style={{ fontSize: "20px", fontWeight: 700, color: "#38bdf8" }}>{threshold}°C</span>
           </div>
           <input
             type="range"
@@ -745,7 +991,46 @@ export default function Dashboard() {
             step={0.5}
             value={threshold}
             onChange={(e) => setThreshold(parseFloat(e.target.value))}
-            aria-label="Cold-weather promotion trigger temperature in degrees Celsius"
+            aria-label="Cold comfort temperature threshold in degrees Celsius"
+          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: "4px",
+              marginBottom: "18px",
+              fontSize: "12px",
+              color: "#64748b",
+            }}
+          >
+            <span>0°C — aggressive</span>
+            <span>15°C — moderate</span>
+            <span>30°C — conservative</span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "10px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 700, color: "#e2e8f0" }}>Hot summer cut-off</span>
+              <Tooltip text="If the 3-day average is above this cut-off AND none of those days count as wet (same rules as cold lane), the hot promo lane turns on — soft drinks, ice cream, BBQ, outdoor snacks." />
+            </div>
+            <span style={{ fontSize: "20px", fontWeight: 700, color: "#fb923c" }}>{hotThreshold}°C</span>
+          </div>
+          <input
+            type="range"
+            className="threshold-slider"
+            min={18}
+            max={40}
+            step={0.5}
+            value={hotThreshold}
+            onChange={(e) => setHotThreshold(parseFloat(e.target.value))}
+            aria-label="Hot summer temperature threshold in degrees Celsius"
           />
           <div
             style={{
@@ -756,38 +1041,29 @@ export default function Dashboard() {
               color: "#64748b",
             }}
           >
-            <span>0°C — Very Cold</span>
-            <span>15°C — Cool</span>
-            <span>30°C — Warm</span>
+            <span>18°C — early heat</span>
+            <span>28°C — typical summer</span>
+            <span>40°C — extreme heat only</span>
           </div>
-          {clientTrigger && (
-            <p
-              style={{
-                margin: "10px 0 0",
-                fontSize: "13px",
-                color: "#94a3b8",
-              }}
-            >
-              3-day forecast avg:{" "}
-              <strong style={{ color: "#f1f5f9" }}>
-                {clientTrigger.avgTemp.toFixed(1)}°C
-              </strong>{" "}
-              · Rainy days:{" "}
-              <strong style={{ color: "#f1f5f9" }}>
-                {clientTrigger.wetDays}
-              </strong>{" "}
-              ·{" "}
-              {clientTrigger.triggered ? (
-                <span style={{ color: "#22d3ee", fontWeight: 600 }}>
-                  ✓ Promotion ACTIVE — cold &amp; wet forecast detected
-                </span>
+
+          {!loading && weather && (
+            <p style={{ margin: "14px 0 0", fontSize: "13px", color: "#94a3b8", lineHeight: 1.6 }}>
+              3-day avg{" "}
+              <strong style={{ color: "#f1f5f9" }}>{kpi.avgTemp.toFixed(1)}°C</strong> · Wet-type days in window:{" "}
+              <strong style={{ color: "#f1f5f9" }}>{kpi.wetDays}</strong> ·{" "}
+              {kpi.coldTriggered ? (
+                <span style={{ color: "#22d3ee", fontWeight: 600 }}>✓ Cold comfort lane ACTIVE</span>
+              ) : kpi.hotTriggered ? (
+                <span style={{ color: "#fb923c", fontWeight: 600 }}>✓ Hot summer lane ACTIVE</span>
               ) : (
-                <span style={{ color: "#64748b" }}>No promotion trigger — forecast too warm or dry</span>
+                <span style={{ color: "#64748b" }}>No activation — adjust sliders vs this avg, or wait for a wet (cold) or dry-heat (hot) window.</span>
               )}
             </p>
           )}
-          <div className="slider-explain">
-            <strong style={{ color: "#f1f5f9" }}>How it works:</strong> The forecast average for the next 3 days is compared to this threshold. If it is colder AND rainy, the system activates — highlighting soup, hot beverages, and comfort foods. All tabs (Promo, Elasticity, Demographics) will update to reflect this city and temperature context.
+          <div className="slider-explain" style={{ marginTop: 12 }}>
+            <strong style={{ color: "#f1f5f9" }}>How it works:</strong> The engine scores the same three forward days for two independent lanes —{" "}
+            <em>cold + wet</em> (WMO precip/fog codes or ≥0.15 mm daily precip) and <em>hot + dry</em> (no wet days). KPIs
+            recompute when you move the sliders so you can stress-test cut-offs against the live forecast.
           </div>
         </div>
 
@@ -795,13 +1071,13 @@ export default function Dashboard() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
             gap: "12px",
             marginBottom: "20px",
           }}
         >
           {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
+            Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="kpi-card">
                 <Skeleton w="60%" h={14} />
                 <Skeleton w="40%" h={28} />
@@ -810,20 +1086,47 @@ export default function Dashboard() {
           ) : (
             <>
               <div className="kpi-card">
-                <span className="kpi-label">Promotion Status</span>
+                <span className="kpi-label">Promo activation</span>
                 <span
                   className="kpi-value"
-                  style={{ color: kpi.triggered ? "#22d3ee" : "#64748b" }}
+                  style={{
+                    color: kpi.anyTriggered ? "#34d399" : "#64748b",
+                  }}
                 >
-                  {kpi.triggered ? "Active" : "Inactive"}
+                  {kpi.anyTriggered ? (kpi.coldTriggered ? "Cold" : kpi.hotTriggered ? "Hot" : "Active") : "Inactive"}
+                </span>
+                <span style={{ fontSize: "12px", color: "#64748b", marginTop: 4, lineHeight: 1.45 }}>
+                  {kpi.anyTriggered
+                    ? kpi.coldTriggered
+                      ? "Comfort / wet window"
+                      : "Summer / dry window"
+                    : `${kpi.wetDays} wet-type day(s) in slice · tune sliders vs ${kpi.avgTemp.toFixed(1)}°C avg`}
+                </span>
+              </div>
+
+              <div className="kpi-card">
+                <span className="kpi-label">Cold comfort lane</span>
+                <span className="kpi-value" style={{ color: kpi.coldTriggered ? "#22d3ee" : "#64748b" }}>
+                  {kpi.coldTriggered ? "Active" : "Off"}
                 </span>
                 <span
-                  className={`badge ${
-                    kpi.triggered ? "badge-triggered" : "badge-not-triggered"
-                  }`}
+                  className={`badge ${kpi.coldTriggered ? "badge-triggered" : "badge-not-triggered"}`}
                   style={{ marginTop: 4, alignSelf: "flex-start" }}
                 >
-                  {kpi.triggered ? "Promo ON" : "No promo"}
+                  {kpi.coldTriggered ? "Cold ON" : "No cold"}
+                </span>
+              </div>
+
+              <div className="kpi-card">
+                <span className="kpi-label">Hot summer lane</span>
+                <span className="kpi-value" style={{ color: kpi.hotTriggered ? "#fb923c" : "#64748b" }}>
+                  {kpi.hotTriggered ? "Active" : "Off"}
+                </span>
+                <span
+                  className={`badge ${kpi.hotTriggered ? "badge-triggered" : "badge-not-triggered"}`}
+                  style={{ marginTop: 4, alignSelf: "flex-start" }}
+                >
+                  {kpi.hotTriggered ? "Hot ON" : "No hot"}
                 </span>
               </div>
 
@@ -833,26 +1136,23 @@ export default function Dashboard() {
                   className="kpi-value"
                   style={{
                     color:
-                      kpi.avgTemp < threshold ? "#22d3ee" : "#f87171",
+                      kpi.avgTemp < kpi.threshold ? "#22d3ee" : kpi.avgTemp > kpi.hotThreshold ? "#fb923c" : "#94a3b8",
                   }}
                 >
                   {kpi.avgTemp.toFixed(1)}°C
                 </span>
                 <span style={{ fontSize: "12px", color: "#64748b" }}>
-                  Trigger at: {threshold}°C
+                  Cold &lt;{kpi.threshold}° · Hot &gt;{kpi.hotThreshold}°
                 </span>
               </div>
 
               <div className="kpi-card">
-                <span className="kpi-label">Rainy Days</span>
-                <span
-                  className="kpi-value"
-                  style={{ color: kpi.wetDays > 0 ? "#34d399" : "#64748b" }}
-                >
+                <span className="kpi-label">Wet-type days</span>
+                <span className="kpi-value" style={{ color: kpi.wetDays > 0 ? "#34d399" : "#64748b" }}>
                   {kpi.wetDays}
                 </span>
                 <span style={{ fontSize: "12px", color: "#64748b" }}>
-                  of {Math.min(3, kpi.forecastDays)} days
+                  of {Math.min(3, kpi.forecastDays)} (WMO + precip trace)
                 </span>
               </div>
 
@@ -1032,7 +1332,7 @@ export default function Dashboard() {
                 color: "#64748b",
               }}
             >
-              Monthly total retail sales · Statistics Canada Table 20-10-0056-01 · Seasonally adjusted
+              Monthly Ontario total retail sales (millions CAD) · Statistics Canada Table 20-10-0056-01 · Seasonally adjusted
             </p>
             {retailLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1096,7 +1396,7 @@ export default function Dashboard() {
                               color: isLatest ? "#22d3ee" : "#94a3b8",
                             }}
                           >
-                            ${(pt.value / 1_000_000).toFixed(1)}B
+                            {formatOntarioRetailMillionsCAD(pt.value)}
                           </span>
                           {isLatest && retailTrend && (
                             <span
@@ -1120,7 +1420,7 @@ export default function Dashboard() {
                               }}
                             >
                               {diff >= 0 ? "+" : ""}
-                              {(diff / 1_000_000).toFixed(1)}B
+                              {formatOntarioRetailDeltaMillionsCAD(diff)}
                             </span>
                           )}
                         </div>
@@ -1337,8 +1637,11 @@ export default function Dashboard() {
         {/* ── Weather-Driven Category Signals ─────────────────── */}
         {weather && (
           <CategorySignals
-            avgTemp={clientTrigger?.avgTemp ?? weather.trigger.avgTemp}
+            avgTemp={weather ? kpi.avgTemp : 0}
             threshold={threshold}
+            hotThreshold={hotThreshold}
+            coldPromoActive={kpi.coldTriggered}
+            hotPromoActive={kpi.hotTriggered}
           />
         )}
 

@@ -79,19 +79,33 @@ function PenetrationBar({ pct }: { pct: number }) {
 
 // ── Weather-context helpers ───────────────────────────────────
 
-function getDemoWeatherLabel(avgTemp: number, threshold: number): { label: string; color: string; tip: string } {
-  if (avgTemp < threshold) {
-    if (avgTemp < 5)  return { label: "Freezing Cold",       color: "#38bdf8", tip: "Cold-weather comfort buyers are most active. Family & mid-income segments respond best to soup + warmth bundles." };
-    if (avgTemp < 12) return { label: "Cold Weather Active", color: "#22d3ee", tip: "Trigger fired. 45–54 age group at mid-income levels leads soup penetration — prioritize loyalty mailers for this cohort." };
-    return                     { label: "Cool",              color: "#7dd3fc", tip: "Mild cold. Families with kids show elevated soup sensitivity — good moment for kids-cereal + soup bundle." };
+function getDemoWeatherLabel(
+  avgTemp: number,
+  threshold: number,
+  hotThreshold: number,
+  coldActive: boolean,
+  hotActive: boolean
+): { label: string; color: string; tip: string } {
+  if (coldActive) {
+    if (avgTemp < 5) return { label: "Cold lane · freezing", color: "#38bdf8", tip: "Comfort buyers are most active. Family & mid-income segments respond best to soup + warmth bundles." };
+    return { label: "Cold lane · active", color: "#22d3ee", tip: "45–54 mid-income leads soup penetration — prioritize loyalty mailers for this cohort while cold + wet is confirmed." };
   }
-  if (avgTemp < 20) return     { label: "Mild / Shoulder",   color: "#86efac", tip: "Shoulder season. Shift promo focus toward fresh produce and everyday-value segments across all age bands." };
-  if (avgTemp < 25) return     { label: "Warm",              color: "#fde047", tip: "Warm weather. Younger segments (18–34) drive soft drinks and ice cream. High-income 35–54 lead BBQ & premium produce." };
-  return                       { label: "Hot — Summer Mode", color: "#fb923c", tip: "Summer activation. College-age and young families dominate outdoor + snacking categories. Rotate demo targeting accordingly." };
+  if (hotActive) {
+    return { label: "Hot lane · active", color: "#fb923c", tip: "College-age and young families dominate outdoor + snacking. Rotate demos toward beverages, ice cream, and BBQ adjacencies." };
+  }
+  if (avgTemp < threshold) {
+    return { label: "Cool — dry window", color: "#7dd3fc", tip: "Below cold cut-off but not wet enough for the cold lane — families still skew soup-curious; pair everyday value with light cross-sell." };
+  }
+  if (avgTemp > hotThreshold) {
+    return { label: "Warm — wet mix", color: "#fde047", tip: "Above hot cut-off with wet codes — elasticity is mixed; younger segments still skew beverages, but avoid over-discounting staples." };
+  }
+  if (avgTemp < 20) return { label: "Mild / Shoulder", color: "#86efac", tip: "Shoulder season. Shift promo focus toward fresh produce and everyday-value segments across all age bands." };
+  if (avgTemp < 25) return { label: "Warm", color: "#fde047", tip: "Warm weather. Younger segments (18–34) drive soft drinks and ice cream. High-income 35–54 lead BBQ & premium produce." };
+  return { label: "Hot — Summer Mode", color: "#fb923c", tip: "Summer activation without a confirmed hot lane — still lean into outdoor + snacking rotations as humidity drops." };
 }
 
 export default function DemographicSegments() {
-  const { selectedCity, avgTemp, threshold } = useWeatherContext();
+  const { selectedCity, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive } = useWeatherContext();
 
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<DemoData | null>(null);
@@ -123,7 +137,7 @@ export default function DemographicSegments() {
   if (error)   return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
   if (!data)   return null;
 
-  const wx = getDemoWeatherLabel(avgTemp, threshold);
+  const wx = getDemoWeatherLabel(avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive);
 
   const top = data.top_soup_buyer_segment;
   const allAges    = [...new Set(data.all_segments.map(s => s.age_group))].sort();
@@ -186,7 +200,7 @@ export default function DemographicSegments() {
             {wx.tip}
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: "#475569" }}>
-            Trigger set at {threshold}°C — change city or temperature on the Dashboard tab to update these insights.
+            Cold below {threshold}°C · Hot above {hotThreshold}°C — adjust sliders on the Dashboard tab to update these insights.
           </div>
         </div>
       </div>
