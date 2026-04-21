@@ -555,6 +555,8 @@ export default function Dashboard() {
           flex-direction: column;
           gap: 6px;
           min-width: 0;
+          min-height: 148px;
+          justify-content: flex-start;
         }
         .kpi-value {
           font-size: 28px;
@@ -1152,6 +1154,22 @@ export default function Dashboard() {
                 >
                   {kpi.coldTriggered ? "Cold ON" : "No cold"}
                 </span>
+                <p style={{ margin: "10px 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.5, flex: 1 }}>
+                  {kpi.coldTriggered ? (
+                    <>Avg below {kpi.threshold}°C and slice has rain/snow/fog or ≥0.15 mm precip on ≥1 day.</>
+                  ) : kpi.avgTemp < kpi.threshold ? (
+                    <>
+                      Temp vs <strong style={{ color: "#94a3b8" }}>{kpi.threshold}°C</strong> is met, but the 3-day slice
+                      has <strong style={{ color: "#94a3b8" }}>{kpi.wetDays}</strong> wet day(s) — need ≥1 for this lane.
+                    </>
+                  ) : (
+                    <>
+                      Avg <strong style={{ color: "#94a3b8" }}>{kpi.avgTemp.toFixed(1)}°C</strong> is not below your{" "}
+                      <strong style={{ color: "#94a3b8" }}>{kpi.threshold}°C</strong> cold cut-off — raise the cold
+                      slider (higher °C) so this avg qualifies.
+                    </>
+                  )}
+                </p>
               </div>
 
               <div className="kpi-card">
@@ -1165,6 +1183,24 @@ export default function Dashboard() {
                 >
                   {kpi.hotTriggered ? "Hot ON" : "No hot"}
                 </span>
+                <p style={{ margin: "10px 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.5, flex: 1 }}>
+                  {kpi.hotTriggered ? (
+                    <>Avg above {kpi.hotThreshold}°C and the slice has zero wet days (dry heat window).</>
+                  ) : kpi.wetDays > 0 ? (
+                    <>
+                      Slice has <strong style={{ color: "#94a3b8" }}>{kpi.wetDays}</strong> wet day(s); hot lane needs a
+                      fully dry 3-day window.
+                    </>
+                  ) : kpi.avgTemp <= kpi.hotThreshold ? (
+                    <>
+                      Avg <strong style={{ color: "#94a3b8" }}>{kpi.avgTemp.toFixed(1)}°C</strong> is not above your{" "}
+                      <strong style={{ color: "#94a3b8" }}>{kpi.hotThreshold}°C</strong> hot cut-off — lower the hot slider
+                      (toward 18°C) so this avg qualifies.
+                    </>
+                  ) : (
+                    <>Wet/dry logic should allow hot — check forecast data.</>
+                  )}
+                </p>
               </div>
 
               <div className="kpi-card">
