@@ -3,10 +3,12 @@
 #
 # What it does:
 #   1. Wakes the Render backend (free tier sleeps after 15 min)
-#   2. Busts the StatCan retail cache → fetches fresh TV-page data
-#   3. Busts the traffic cache → fetches fresh 511 Ontario data
-#   4. Pings /api/weather for Mississauga to warm the weather cache
-#   5. Logs the refresh timestamp as a GitHub Actions summary
+#   2. POST /api/internal/refresh-caches — clears in-memory caches and re-fetches:
+#        StatCan Ontario total + WDS NAICS series for every demand category, 511 GTA,
+#        Open-Meteo weather (Mississauga, Toronto, Vancouver, Calgary) at default thresholds
+#   3. Logs the refresh summary (requires repo secret DATA_REFRESH_SECRET matching Render)
+#
+# Add GitHub repo secret: DATA_REFRESH_SECRET — same value as Render env on the API service.
 #
 # Cost: uses ~2 GitHub Actions minutes per run
 #       Free tier = 2,000 min/month → this uses ~360 min/month
@@ -66,74 +68,45 @@ jobs:
             echo "::warning::Backend did not return HTTP 200 after wake loop — later steps may still time out."
           fi
 
-      # ── Step 2: Bust StatCan cache (Ontario retail data) ─────────
-      # The server caches this for 1 hour. Hitting it forces a fresh
-      # TV-page scrape from StatCan to get the latest retail figures.
-      - name: Refresh StatCan Ontario retail data
+      # ── Step 2: Bust + warm all server-side caches (one round-trip) ─
+      - name: Bust and warm API caches (StatCan, traffic, weather)
+        env:
+          DATA_REFRESH_SECRET: ${{ secrets.DATA_REFRESH_SECRET }}
         run: |
           set +e
-          echo "Refreshing StatCan data..."
-          RESPONSE=$(curl -sS --connect-timeout 20 --max-time 120 "$API_BASE/api/statcan/ontario-retail")
+          if [ -z "$DATA_REFRESH_SECRET" ]; then
+            echo "::warning::Repository secret DATA_REFRESH_SECRET is not set. Add it (same value as Render DATA_REFRESH_SECRET) so cron can refresh caches."
+            echo "Skipping cache bust — falling back to public GETs (may still hit cold cache TTL on server)."
+            for EP in "/api/statcan/ontario-retail" "/api/traffic/gta"; do
+              curl -sS --connect-timeout 20 --max-time 120 "$API_BASE$EP" -o /dev/null || true
+            done
+            for CITY in "Mississauga" "Toronto" "Vancouver" "Calgary"; do
+              ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$CITY'))")
+              curl -sS --connect-timeout 20 --max-time 90 "$API_BASE/api/weather?city=$ENCODED" -o /dev/null || true
+            done
+            exit 0
+          fi
+          echo "Calling POST /api/internal/refresh-caches ..."
+          RESPONSE=$(curl -sS --connect-timeout 25 --max-time 180 \
+            -X POST "$API_BASE/api/internal/refresh-caches" \
+            -H "Authorization: Bearer $DATA_REFRESH_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}')
           RC=$?
           set -e
           if [ "$RC" -ne 0 ]; then
-            echo "::warning::StatCan curl failed (exit $RC; 28 = timeout). Is the API awake?"
+            echo "::error::refresh-caches request failed (curl exit $RC)"
             exit 1
           fi
-          LAST_PERIOD=$(echo "$RESPONSE" | python3 -c "
+          echo "$RESPONSE" | python3 -c "
           import sys, json
-          d = json.load(sys.stdin)
-          pts = d.get('data', [])
-          if pts:
-              last = pts[-1]
-              print(f'Latest: {last[\"period\"]}  \${last[\"value\"]}M  trend={d[\"trend\"]}')
-          else:
-              print('No data returned')
-          " 2>/dev/null || echo "Parse error")
-          echo "StatCan → $LAST_PERIOD"
+          j = json.load(sys.stdin)
+          print('ok:', j.get('ok'), 'warmed:', len(j.get('warmed',[])), 'errors:', len(j.get('errors',[])))
+          if j.get('errors'):
+              print('error keys:', j['errors'])
+          " || echo "$RESPONSE"
 
-      # ── Step 3: Refresh GTA traffic ──────────────────────────────
-      - name: Refresh GTA traffic data
-        run: |
-          set +e
-          echo "Refreshing GTA traffic..."
-          RESPONSE=$(curl -sS --connect-timeout 20 --max-time 90 "$API_BASE/api/traffic/gta")
-          RC=$?
-          set -e
-          if [ "$RC" -ne 0 ]; then
-            echo "::warning::Traffic curl failed (exit $RC)"
-            exit 1
-          fi
-          SUMMARY=$(echo "$RESPONSE" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(f'Incidents: {d.get(\"incidentCount\",\"?\")}  Level: {d.get(\"disruptionLevel\",\"?\")}')
-          " 2>/dev/null || echo "Parse error")
-          echo "Traffic → $SUMMARY"
-
-      # ── Step 4: Refresh weather for key cities ───────────────────
-      - name: Refresh weather cache (key cities)
-        run: |
-          for CITY in "Mississauga" "Toronto" "Vancouver" "Calgary"; do
-            ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$CITY'))")
-            set +e
-            RESPONSE=$(curl -sS --connect-timeout 20 --max-time 90 "$API_BASE/api/weather?city=$ENCODED")
-            RC=$?
-            set -e
-            if [ "$RC" -ne 0 ]; then
-              echo "::warning::Weather curl for $CITY failed (exit $RC)"
-              continue
-            fi
-            SUMMARY=$(echo "$RESPONSE" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          t = d.get('trigger', {})
-          print(f'{d.get(\"city\",{}).get(\"name\",\"?\")}: {t.get(\"avgTemp\",\"?\")}°C  triggered={t.get(\"triggered\",\"?\")}')
-            " 2>/dev/null || echo "Parse error")
-            echo "Weather → $SUMMARY"
-          done
-
-      # ── Step 5: Log summary ───────────────────────────────────────
+      # ── Step 3: Log summary ───────────────────────────────────────
       - name: Write job summary
         run: |
           echo "## CPG Dashboard — Data Refresh" >> $GITHUB_STEP_SUMMARY
@@ -141,8 +114,6 @@ jobs:
           echo "**Time (UTC):** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "**Time (ET):**  $(TZ='America/Toronto' date '+%Y-%m-%d %H:%M:%S ET')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ StatCan Ontario retail refreshed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ GTA traffic refreshed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Weather cache warmed (4 cities)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ POST /api/internal/refresh-caches (StatCan total + all categories, 511, weather)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "_Next run in 4 hours. View logs above for data values._" >> $GITHUB_STEP_SUMMARY

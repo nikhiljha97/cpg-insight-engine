@@ -88,19 +88,32 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
     });
   });
 
-  await page.route("**/api/statcan/ontario-retail", async (route) => {
+  await page.route("**/api/statcan/ontario-retail*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         data: [
-          { period: "2025-01", value: 62.1, unit: "$M" },
-          { period: "2025-02", value: 62.4, unit: "$M" },
+          { period: "2024-07", value: 2638, unit: "$M" },
+          { period: "2024-08", value: 2613, unit: "$M" },
+          { period: "2024-09", value: 2573, unit: "$M" },
+          { period: "2024-10", value: 2551, unit: "$M" },
+          { period: "2024-11", value: 2529, unit: "$M" },
+          { period: "2024-12", value: 2685, unit: "$M" },
+          { period: "2025-01", value: 2498, unit: "$M" },
+          { period: "2025-02", value: 2520, unit: "$M" },
         ],
-        trend: "flat",
-        latestValue: 62.4,
-        prevValue: 62.1,
-        changePercent: 0.5,
+        trend: "up",
+        latestValue: 2520,
+        prevValue: 2498,
+        changePercent: 0.9,
+        meta: {
+          seriesKind: "ontario_naics_unadjusted",
+          table: "UAT — Statistics Canada Table 20-10-0056-02 (stub)",
+          vectorId: 1446859799,
+          statcanSeriesTitle: "Ontario — Supermarkets & other grocery [44511] (NAICS), unadjusted (stub)",
+          notes: "Playwright mock, not live StatCan.",
+        },
       }),
     });
   });

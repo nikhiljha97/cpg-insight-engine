@@ -5,7 +5,8 @@
 #   - https://cpg-insight-engine-api.onrender.com  (Express API)
 #   - https://cpg-insight-engine.onrender.com    (Vite static build → CDN)
 #
-# Set GROQ_API_KEY on the API service in the dashboard (secret).
+# Set GROQ_API_KEY and DATA_REFRESH_SECRET on the API service in the dashboard (secrets).
+# DATA_REFRESH_SECRET: long random string; GitHub Actions uses the same value to call POST /api/internal/refresh-caches.
 
 services:
   - type: web
@@ -20,6 +21,8 @@ services:
       - key: NODE_VERSION
         value: "22.16.0"
       - key: GROQ_API_KEY
+        sync: false
+      - key: DATA_REFRESH_SECRET
         sync: false
 
   - type: web

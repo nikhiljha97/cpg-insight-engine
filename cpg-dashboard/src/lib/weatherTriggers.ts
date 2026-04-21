@@ -26,13 +26,16 @@ export const WMO_WET_WEATHER_CODES = new Set([
   99,
 ]);
 
-/** mm — treat trace precip as wet when the icon code is still "dry" (e.g. overcast + showers omitted). */
-const PRECIP_WET_MM = 0.15;
+/**
+ * mm — any strictly positive daily `precipitation_sum` counts as a wet day when WMO code is still "dry"
+ * (e.g. overcast with trace rain). Uses a tiny epsilon so float noise does not count as wet.
+ */
+export const PRECIP_WET_EPSILON_MM = 1e-6;
 
 export function isWetForecastDay(d: ForecastSliceDay): boolean {
   if (WMO_WET_WEATHER_CODES.has(d.weatherCode)) return true;
   const mm = d.precipitationMm;
-  return typeof mm === "number" && Number.isFinite(mm) && mm >= PRECIP_WET_MM;
+  return typeof mm === "number" && Number.isFinite(mm) && mm > PRECIP_WET_EPSILON_MM;
 }
 
 export type ForecastSliceDay = {

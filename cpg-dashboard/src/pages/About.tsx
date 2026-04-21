@@ -532,7 +532,7 @@ const About: React.FC = () => {
           <TechItem
             label="Scheduling"
             value="GitHub Actions"
-            description="Weekday 8AM ET — keeps the Render service warm and refreshes any cached data signals"
+            description="Every 4 hours UTC the workflow wakes Render, clears in-memory API caches, and pre-warms StatCan (total + all demand categories), 511 traffic, and Open-Meteo weather for key cities. Unified bundle JSON still refreshes on its own data pipeline schedule."
           />
         </div>
       </div>

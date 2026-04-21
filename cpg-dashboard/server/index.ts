@@ -4,22 +4,49 @@ import Groq from "groq-sdk";
 import fs from "node:fs";
 import path from "node:path";
 import cors from "cors";
-import { isDemandCategory, type DemandCategory } from "../src/constants/demandCategories.js";
+import {
+  isDemandCategory,
+  type DemandCategory,
+  DEMAND_CATEGORY_LIST,
+} from "../src/constants/demandCategories.js";
 import { computeWeatherActivations } from "../src/lib/weatherTriggers.js";
 import { buildMacroStrip } from "./macroStrip.js";
 import { runNlqStub } from "./nlqStub.js";
 import { buildNlqDataContext, nlqChatCompletion } from "./nlqChat.js";
+import { fetchStatcanVectorMonthlyMillions } from "./statcanWds.js";
+import {
+  CATEGORY_ONTARIO_RETAIL_FALLBACK_SHARE,
+  DEMAND_CATEGORY_STATCAN_VECTOR,
+  VECTOR_SERIES_LABEL,
+} from "./demandCategoryStatcan.js";
 
 // ── Cache types ──────────────────────────────────────────────
 interface CacheEntry<T> { data: T; fetchedAt: number; }
 interface RetailDataPoint { period: string; value: number; unit: string; }
-interface RetailResponse { data: RetailDataPoint[]; trend: "up" | "down" | "flat"; latestValue: number; prevValue: number; changePercent: number; }
+type RetailSeriesKind = "ontario_total_retail_sa" | "ontario_naics_unadjusted" | "fallback_scaled_total_sa";
+interface RetailSeriesMeta {
+  seriesKind: RetailSeriesKind;
+  demandCategory?: DemandCategory;
+  table?: string;
+  vectorId?: number;
+  statcanSeriesTitle?: string;
+  notes?: string;
+}
+interface RetailResponse {
+  data: RetailDataPoint[];
+  trend: "up" | "down" | "flat";
+  latestValue: number;
+  prevValue: number;
+  changePercent: number;
+  meta?: RetailSeriesMeta;
+}
 interface TrafficEvent { description: string; county: string; road: string; }
 interface TrafficResponse { incidentCount: number; disruptionLevel: "Low" | "Moderate" | "High" | "Unknown"; topEvents: TrafficEvent[]; error?: string; }
-let retailCache: CacheEntry<RetailResponse> | null = null;
-const RETAIL_CACHE_TTL_MS = 60 * 60 * 1000;
+const retailCacheByKey = new Map<string, CacheEntry<RetailResponse>>();
+/** In-process cache; GitHub cron calls POST /api/internal/refresh-caches to bust + warm before TTL edge. */
+const RETAIL_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 let trafficCache: CacheEntry<TrafficResponse> | null = null;
-const TRAFFIC_CACHE_TTL_MS = 15 * 60 * 1000;
+const TRAFFIC_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
 type City = {
   name: string;
@@ -37,6 +64,11 @@ type ForecastDay = {
   weatherLabel: string;
   inTriggerWindow: boolean;
 };
+
+type WeatherApiPayload = { city: City; forecast: ForecastDay[]; trigger: ServerWeatherTrigger };
+const weatherCacheByKey = new Map<string, CacheEntry<WeatherApiPayload>>();
+/** Short TTL so slider tweaks refetch quickly; cron bust clears entries for fresh Open-Meteo pulls. */
+const WEATHER_CACHE_TTL_MS = 3 * 60 * 1000;
 
 const PORT = Number(process.env.PORT) || 4000;
 const WEATHER_THRESHOLD = 12;
@@ -136,6 +168,10 @@ const corsOrigins = [
     .filter(Boolean) ?? [])
 ];
 app.use(cors({ origin: corsOrigins }));
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 function readUnifiedSignal(): Record<string, unknown> | null {
   try {
@@ -810,8 +846,16 @@ app.get("/api/weather", async (req, res) => {
       const h = Number(req.query.hotThreshold);
       if (Number.isFinite(h)) hotThreshold = h;
     }
+    const wkey = weatherCacheKey(city.name, coldThreshold, hotThreshold);
+    const wcached = weatherCacheByKey.get(wkey);
+    if (wcached && Date.now() - wcached.fetchedAt < WEATHER_CACHE_TTL_MS) {
+      res.json(wcached.data);
+      return;
+    }
     const weather = await fetchWeather(city, coldThreshold, hotThreshold);
-    res.json({ city, ...weather });
+    const payload: WeatherApiPayload = { city, ...weather };
+    weatherCacheByKey.set(wkey, { data: payload, fetchedAt: Date.now() });
+    res.json(payload);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown weather error";
     res.status(500).json({ error: message });
@@ -1061,90 +1105,236 @@ const ONTARIO_RETAIL_HISTORICAL: RetailDataPoint[] = [
   { period: "2025-08", value: 26134, unit: "$M" },
 ];
 
-app.get("/api/statcan/ontario-retail", async (_req, res) => {
-  // Serve from cache if still fresh
-  if (retailCache && Date.now() - retailCache.fetchedAt < RETAIL_CACHE_TTL_MS) {
-    return res.json(retailCache.data);
-  }
+let mergedOntarioTotalPointsCache: CacheEntry<RetailDataPoint[]> | null = null;
 
-  let livePoints: RetailDataPoint[] = [];
-
-  try {
-    // ── Fetch live months from StatCan TV page ──────────────────────────
-    // Table 20-10-0056-01: pid=2010005601
-    // Ontario row (memberId=10) contains 5 most-recently published months.
-    // Values on the page are in CAD thousands → divide by 1000 to get $M.
-    const tvRes = await fetch(
-      "https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=2010005601",
-      {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; CPG-Dashboard/2.0)" },
-        signal: AbortSignal.timeout(15000),
-      }
-    );
-
-    if (!tvRes.ok) throw new Error(`StatCan TV page status ${tvRes.status}`);
-    const html = await tvRes.text();
-
-    // Extract date column headers
-    const monthNames = "January|February|March|April|May|June|July|August|September|October|November|December";
-    const dateMatches = [...html.matchAll(new RegExp(`"value":"((?:${monthNames}) \d{4})"`, "g"))];
-    const dates = dateMatches.map(m => m[1]);
-
-    // Find Ontario block (appears after the "Ontario" label value)
-    const ontarioIdx = html.indexOf('"value":"Ontario"');
-    if (ontarioIdx === -1) throw new Error("Ontario row not found in TV page");
-
-    const afterOntario = html.slice(ontarioIdx, ontarioIdx + 3000);
-    const valMatches = [...afterOntario.matchAll(/"formattedValue":"([\d,]+)"/g)];
-
-    const count = Math.min(dates.length, valMatches.length);
-    if (count === 0) throw new Error("No data values found in TV page");
-
-    for (let i = 0; i < count; i++) {
-      const rawVal = parseFloat(valMatches[i][1].replace(/,/g, ""));
-      // Convert "Month YYYY" → "YYYY-MM"
-      const parts = dates[i].split(" ");
-      const monthName = parts[0];
-      const year      = parts[1];
-      const monthNum  = new Date(`${monthName} 1, ${year}`).getMonth() + 1;
-      const period    = `${year}-${String(monthNum).padStart(2, "0")}`;
-      // rawVal is in CAD thousands → $M
-      const valueInMillions = Math.round(rawVal / 1000 * 10) / 10;
-      livePoints.push({ period, value: valueInMillions, unit: "$M" });
-    }
-
-  } catch (err) {
-    console.error("[StatCan TV] scrape failed:", err);
-    // Fall through — we still serve historical data
-  }
-
-  // ── Merge historical baseline + live points ─────────────────────────
-  // De-duplicate by period: live points override historical if same period exists.
-  const merged = new Map<string, RetailDataPoint>();
-  for (const p of ONTARIO_RETAIL_HISTORICAL) merged.set(p.period, p);
-  for (const p of livePoints)                merged.set(p.period, p);
-
-  // Sort oldest → newest
-  const data: RetailDataPoint[] = [...merged.values()]
-    .sort((a, b) => a.period.localeCompare(b.period));
-
-  if (data.length === 0) {
-    return res.status(502).json({ error: "StatCan unavailable", data: [] });
-  }
-
-  const latestValue   = data[data.length - 1].value;
-  const prevValue     = data[data.length - 2]?.value ?? latestValue;
+function computeRetailTrendPayload(data: RetailDataPoint[]): Omit<RetailResponse, "meta"> {
+  const latestValue = data[data.length - 1].value;
+  const prevValue = data[data.length - 2]?.value ?? latestValue;
   const changePercent =
-    prevValue !== 0
-      ? Math.round(((latestValue - prevValue) / prevValue) * 10000) / 100
-      : 0;
-
+    prevValue !== 0 ? Math.round(((latestValue - prevValue) / prevValue) * 10000) / 100 : 0;
   const trend: "up" | "down" | "flat" =
     changePercent > 0.1 ? "up" : changePercent < -0.1 ? "down" : "flat";
+  return { data, trend, latestValue, prevValue, changePercent };
+}
 
-  const payload: RetailResponse = { data, trend, latestValue, prevValue, changePercent };
-  retailCache = { data: payload, fetchedAt: Date.now() };
-  return res.json(payload);
+async function scrapeOntarioTotalRetailTvLive(): Promise<RetailDataPoint[]> {
+  const livePoints: RetailDataPoint[] = [];
+  const tvRes = await fetch("https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=2010005601", {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; CPG-Dashboard/2.0)" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!tvRes.ok) throw new Error(`StatCan TV page status ${tvRes.status}`);
+  const html = await tvRes.text();
+  const monthNames = "January|February|March|April|May|June|July|August|September|October|November|December";
+  const dateMatches = [...html.matchAll(new RegExp(`"value":"((?:${monthNames}) \\d{4})"`, "g"))];
+  const dates = dateMatches.map((m) => m[1]);
+  const ontarioIdx = html.indexOf('"value":"Ontario"');
+  if (ontarioIdx === -1) throw new Error("Ontario row not found in TV page");
+  const afterOntario = html.slice(ontarioIdx, ontarioIdx + 3000);
+  const valMatches = [...afterOntario.matchAll(/"formattedValue":"([\d,]+)"/g)];
+  const count = Math.min(dates.length, valMatches.length);
+  if (count === 0) throw new Error("No data values found in TV page");
+  for (let i = 0; i < count; i++) {
+    const rawVal = parseFloat(valMatches[i][1].replace(/,/g, ""));
+    const parts = dates[i].split(" ");
+    const monthName = parts[0];
+    const year = parts[1];
+    const monthNum = new Date(`${monthName} 1, ${year}`).getMonth() + 1;
+    const period = `${year}-${String(monthNum).padStart(2, "0")}`;
+    const valueInMillions = Math.round((rawVal / 1000) * 10) / 10;
+    livePoints.push({ period, value: valueInMillions, unit: "$M" });
+  }
+  return livePoints;
+}
+
+/** Ontario all-retail SA ($M): embedded history + StatCan TV scrape (Table 20-10-0056-01). */
+async function getMergedOntarioTotalRetailPoints(): Promise<RetailDataPoint[]> {
+  if (mergedOntarioTotalPointsCache && Date.now() - mergedOntarioTotalPointsCache.fetchedAt < RETAIL_CACHE_TTL_MS) {
+    return mergedOntarioTotalPointsCache.data;
+  }
+  let livePoints: RetailDataPoint[] = [];
+  try {
+    livePoints = await scrapeOntarioTotalRetailTvLive();
+  } catch (err) {
+    console.error("[StatCan TV] scrape failed:", err);
+  }
+  const merged = new Map<string, RetailDataPoint>();
+  for (const p of ONTARIO_RETAIL_HISTORICAL) merged.set(p.period, p);
+  for (const p of livePoints) merged.set(p.period, p);
+  const data = [...merged.values()].sort((a, b) => a.period.localeCompare(b.period));
+  mergedOntarioTotalPointsCache = { data, fetchedAt: Date.now() };
+  return data;
+}
+
+async function buildOntarioDemandCategoryRetailResponse(category: DemandCategory): Promise<RetailResponse> {
+  const vectorId = DEMAND_CATEGORY_STATCAN_VECTOR[category];
+  try {
+    const data = await fetchStatcanVectorMonthlyMillions(vectorId);
+    if (data.length === 0) throw new Error("empty WDS series");
+    const core = computeRetailTrendPayload(data);
+    return {
+      ...core,
+      meta: {
+        seriesKind: "ontario_naics_unadjusted",
+        demandCategory: category,
+        table: "Statistics Canada Table 20-10-0056-02 (cube 20100056)",
+        vectorId,
+        statcanSeriesTitle: VECTOR_SERIES_LABEL[vectorId] ?? `Vector ${vectorId}`,
+        notes:
+          "Official monthly Ontario NAICS sales in this table are not seasonally adjusted at this detail; quarter sums retain seasonal pattern.",
+      },
+    };
+  } catch (err) {
+    console.error("[StatCan WDS] industry series failed:", err);
+    const totalPts = await getMergedOntarioTotalRetailPoints();
+    if (totalPts.length === 0) throw new Error("no total retail fallback");
+    const share = CATEGORY_ONTARIO_RETAIL_FALLBACK_SHARE[category];
+    const scaled = totalPts.map((p) => ({
+      ...p,
+      value: Math.round(p.value * share * 10) / 10,
+    }));
+    const core = computeRetailTrendPayload(scaled);
+    return {
+      ...core,
+      meta: {
+        seriesKind: "fallback_scaled_total_sa",
+        demandCategory: category,
+        table: "Statistics Canada Table 20-10-0056-01 (Ontario total retail, SA) × illustrative share",
+        notes: "NAICS Web Data Service was unavailable; values scaled from Ontario total retail (seasonally adjusted).",
+      },
+    };
+  }
+}
+
+function weatherCacheKey(cityName: string, cold: number, hot: number): string {
+  return `${cityName}|${cold}|${hot}`;
+}
+
+function bustAllServerCaches(): void {
+  retailCacheByKey.clear();
+  mergedOntarioTotalPointsCache = null;
+  trafficCache = null;
+  weatherCacheByKey.clear();
+}
+
+async function fetchGtaTrafficPayload(): Promise<TrafficResponse> {
+  const url511 = "https://511on.ca/api/v2/get/event?lang=en&county=Peel&county=Toronto&county=York";
+  const trafficRes = await fetch(url511);
+  if (!trafficRes.ok) throw new Error(`511 API responded with status ${trafficRes.status}`);
+  const events: Array<{
+    Description?: string;
+    County?: string;
+    RoadwayName?: string;
+    EventType?: string;
+    IsActive?: boolean;
+  }> = await trafficRes.json();
+  const activeEvents = events.filter((e) => e.IsActive === true || e.IsActive === undefined);
+  const incidentCount = activeEvents.length;
+  const disruptionLevel: "Low" | "Moderate" | "High" =
+    incidentCount <= 2 ? "Low" : incidentCount <= 6 ? "Moderate" : "High";
+  const topEvents: TrafficEvent[] = activeEvents.slice(0, 4).map((e) => ({
+    description: e.Description ?? "No description",
+    county: e.County ?? "Unknown",
+    road: e.RoadwayName ?? "Unknown",
+  }));
+  return { incidentCount, disruptionLevel, topEvents };
+}
+
+/** Pre-fills in-memory caches after a bust (used by GitHub Actions every 4h). */
+async function warmAllLiveDataSources(): Promise<{ warmed: string[]; errors: string[] }> {
+  const warmed: string[] = [];
+  const errors: string[] = [];
+
+  try {
+    const totalPts = await getMergedOntarioTotalRetailPoints();
+    const totalCore = computeRetailTrendPayload(totalPts);
+    retailCacheByKey.set("total", {
+      data: {
+        ...totalCore,
+        meta: {
+          seriesKind: "ontario_total_retail_sa",
+          table: "Statistics Canada Table 20-10-0056-01",
+          notes: "Ontario all-retail, seasonally adjusted (historical baseline + live TV scrape).",
+        },
+      },
+      fetchedAt: Date.now(),
+    });
+    warmed.push("statcan:total");
+  } catch {
+    errors.push("statcan:total");
+  }
+
+  for (const cat of DEMAND_CATEGORY_LIST) {
+    try {
+      const payload = await buildOntarioDemandCategoryRetailResponse(cat);
+      retailCacheByKey.set(`cat:${cat}`, { data: payload, fetchedAt: Date.now() });
+      warmed.push(`statcan:${cat}`);
+    } catch {
+      errors.push(`statcan:${cat}`);
+    }
+  }
+
+  try {
+    trafficCache = { data: await fetchGtaTrafficPayload(), fetchedAt: Date.now() };
+    warmed.push("traffic");
+  } catch {
+    errors.push("traffic");
+  }
+
+  for (const cityName of ["Mississauga", "Toronto", "Vancouver", "Calgary"]) {
+    const city = getCityByName(cityName);
+    const cold = WEATHER_THRESHOLD;
+    const hot = HOT_WEATHER_THRESHOLD_DEFAULT;
+    const key = weatherCacheKey(city.name, cold, hot);
+    try {
+      const w = await fetchWeather(city, cold, hot);
+      const payload: WeatherApiPayload = { city, ...w };
+      weatherCacheByKey.set(key, { data: payload, fetchedAt: Date.now() });
+      warmed.push(`weather:${city.name}`);
+    } catch {
+      errors.push(`weather:${city.name}`);
+    }
+  }
+
+  return { warmed, errors };
+}
+
+app.get("/api/statcan/ontario-retail", async (req, res) => {
+  const raw = typeof req.query.demandCategory === "string" ? req.query.demandCategory : "";
+  const demandCategory = isDemandCategory(raw) ? raw : null;
+  const cacheKey = demandCategory ? `cat:${demandCategory}` : "total";
+
+  const hit = retailCacheByKey.get(cacheKey);
+  if (hit && Date.now() - hit.fetchedAt < RETAIL_CACHE_TTL_MS) {
+    return res.json(hit.data);
+  }
+
+  try {
+    if (demandCategory) {
+      const payload = await buildOntarioDemandCategoryRetailResponse(demandCategory);
+      retailCacheByKey.set(cacheKey, { data: payload, fetchedAt: Date.now() });
+      return res.json(payload);
+    }
+
+    const data = await getMergedOntarioTotalRetailPoints();
+    if (data.length === 0) {
+      return res.status(502).json({ error: "StatCan unavailable", data: [] });
+    }
+    const core = computeRetailTrendPayload(data);
+    const payload: RetailResponse = {
+      ...core,
+      meta: {
+        seriesKind: "ontario_total_retail_sa",
+        table: "Statistics Canada Table 20-10-0056-01",
+        notes: "Ontario all-retail, seasonally adjusted (historical baseline + live TV scrape).",
+      },
+    };
+    retailCacheByKey.set(cacheKey, { data: payload, fetchedAt: Date.now() });
+    return res.json(payload);
+  } catch (e) {
+    console.error("[ontario-retail] route error:", e);
+    return res.status(502).json({ error: "StatCan unavailable", data: [] });
+  }
 });
 
 // ── ROUTE: GET /api/traffic/gta ────────────────────────────
@@ -1155,37 +1345,9 @@ app.get("/api/traffic/gta", async (_req, res) => {
   }
 
   try {
-    const url511 = "https://511on.ca/api/v2/get/event?lang=en&county=Peel&county=Toronto&county=York";
-    const trafficRes = await fetch(url511);
-
-    if (!trafficRes.ok) throw new Error(`511 API responded with status ${trafficRes.status}`);
-
-    const events: Array<{
-      Description?: string;
-      County?: string;
-      RoadwayName?: string;
-      EventType?: string;
-      IsActive?: boolean;
-    }> = await trafficRes.json();
-
-    const activeEvents = events.filter(
-      (e) => e.IsActive === true || e.IsActive === undefined
-    );
-
-    const incidentCount = activeEvents.length;
-    const disruptionLevel: "Low" | "Moderate" | "High" =
-      incidentCount <= 2 ? "Low" : incidentCount <= 6 ? "Moderate" : "High";
-
-    const topEvents: TrafficEvent[] = activeEvents.slice(0, 4).map((e) => ({
-      description: e.Description ?? "No description",
-      county:      e.County      ?? "Unknown",
-      road:        e.RoadwayName ?? "Unknown",
-    }));
-
-    const payload: TrafficResponse = { incidentCount, disruptionLevel, topEvents };
+    const payload = await fetchGtaTrafficPayload();
     trafficCache = { data: payload, fetchedAt: Date.now() };
     return res.json(payload);
-
   } catch (err) {
     console.error("[511 proxy] fetch failed:", err);
     const fallback: TrafficResponse = {
@@ -1198,15 +1360,55 @@ app.get("/api/traffic/gta", async (_req, res) => {
   }
 });
 
+// ── Internal: bust + warm caches (GitHub Actions cron, Bearer DATA_REFRESH_SECRET) ─
+
+app.post("/api/internal/refresh-caches", async (req, res) => {
+  const secret = process.env.DATA_REFRESH_SECRET;
+  if (!secret || secret.length < 12) {
+    res.status(503).json({
+      ok: false,
+      error: "DATA_REFRESH_SECRET is not set (or too short) on the server — configure it on Render for cron refresh.",
+    });
+    return;
+  }
+  const auth = req.headers.authorization;
+  const bearer = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const body = req.body as { secret?: unknown } | undefined;
+  const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+  if (bearer !== secret && bodySecret !== secret) {
+    res.status(401).json({ ok: false, error: "Unauthorized" });
+    return;
+  }
+  bustAllServerCaches();
+  try {
+    const { warmed, errors } = await warmAllLiveDataSources();
+    res.json({
+      ok: true,
+      bustedAt: new Date().toISOString(),
+      warmed,
+      errors,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "warm failed";
+    res.status(500).json({ ok: false, error: message });
+  }
+});
+
 // ── ROUTE: POST /api/nlq/stub (keyword NLQ, no LLM) ─────────
 
-app.post("/api/nlq/stub", (req, res) => {
+app.post("/api/nlq/stub", async (req, res) => {
   const body = req.body as { query?: unknown } | undefined;
   const query = typeof body?.query === "string" ? body.query : "";
-  const ontarioRetailSeries = ONTARIO_RETAIL_HISTORICAL.slice(-12).map((p) => ({
-    period: p.period,
-    value: p.value,
-  }));
+  let ontarioRetailSeries: Array<{ period: string; value: number }>;
+  try {
+    const pts = await getMergedOntarioTotalRetailPoints();
+    ontarioRetailSeries = pts.slice(-12).map((p) => ({ period: p.period, value: p.value }));
+  } catch {
+    ontarioRetailSeries = ONTARIO_RETAIL_HISTORICAL.slice(-12).map((p) => ({
+      period: p.period,
+      value: p.value,
+    }));
+  }
   const unified = readUnifiedSignal();
   res.json(runNlqStub(query, { unified, ontarioRetailSeries }));
 });
@@ -1237,7 +1439,13 @@ app.post("/api/nlq/chat", async (req, res) => {
     }
     const city = typeof body.city === "string" ? body.city.trim() : undefined;
     const unified = readUnifiedSignal();
-    const ontarioTrail = ONTARIO_RETAIL_HISTORICAL.slice(-18).map((p) => ({ period: p.period, value: p.value }));
+    let ontarioTrail: Array<{ period: string; value: number }>;
+    try {
+      const pts = await getMergedOntarioTotalRetailPoints();
+      ontarioTrail = pts.slice(-18).map((p) => ({ period: p.period, value: p.value }));
+    } catch {
+      ontarioTrail = ONTARIO_RETAIL_HISTORICAL.slice(-18).map((p) => ({ period: p.period, value: p.value }));
+    }
     const ctx = buildNlqDataContext(unified, ontarioTrail, city);
     const out = await nlqChatCompletion(process.env.GROQ_API_KEY, ctx, conv);
     res.json(out);

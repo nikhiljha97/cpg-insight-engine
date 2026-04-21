@@ -22,6 +22,8 @@ test("Dashboard: weather + demand category", async ({ page }) => {
   await expect(catSelect).toBeVisible();
   await catSelect.selectOption("Ice Cream");
   await expect(catSelect).toHaveValue("Ice Cream");
+  await expect(page.getByText(/Ontario retail · Ice Cream/)).toBeVisible();
+  await expect(page.getByText(/Quarterly sales \(M\$ CAD\)/)).toBeVisible();
 });
 
 test("Dashboard: macro strip + NLQ beta panel", async ({ page }) => {

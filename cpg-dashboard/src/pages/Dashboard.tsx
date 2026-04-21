@@ -10,6 +10,7 @@ import {
   isDemandCategory,
 } from "../constants/demandCategories";
 import { computeWeatherActivations } from "../lib/weatherTriggers";
+import { aggregateQuarterly, lastNQuarters } from "../lib/ontarioRetailQuarterly";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -44,6 +45,14 @@ type WeatherResponse = {
 type RetailDataPoint = {
   refPer: string;
   value: number;
+};
+
+type OntarioRetailSeriesMeta = {
+  seriesKind: "ontario_total_retail_sa" | "ontario_naics_unadjusted" | "fallback_scaled_total_sa";
+  table?: string;
+  vectorId?: number;
+  statcanSeriesTitle?: string;
+  notes?: string;
 };
 
 type TrafficEvent = {
@@ -131,6 +140,65 @@ function Skeleton({ w, h, radius = 6 }: { w: string; h: number; radius?: number 
 
 /* ─── Tooltip ────────────────────────────────────────────────────────────── */
 
+function OntarioQuarterSparkline({ values }: { values: number[] }) {
+  const w = 320;
+  const h = 96;
+  const pad = 10;
+  if (values.length === 0) return null;
+  if (values.length === 1) {
+    return (
+      <p style={{ fontSize: 12, color: "#64748b", margin: "10px 0 0" }}>
+        One quarter in view — more monthly history unlocks a trend line.
+      </p>
+    );
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const innerW = w - 2 * pad;
+  const innerH = h - 2 * pad;
+  const coords = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * innerW;
+    const y = pad + (1 - (v - min) / span) * innerH;
+    return { x, y, v };
+  });
+  const pointsAttr = coords.map((c) => `${c.x},${c.y}`).join(" ");
+  return (
+    <div style={{ marginTop: 12 }}>
+      <p
+        style={{
+          fontSize: 11,
+          color: "#64748b",
+          margin: "0 0 4px",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        Quarterly total (M$)
+      </p>
+      <svg
+        width="100%"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        style={{ display: "block", maxHeight: 100 }}
+        aria-hidden
+      >
+        <polyline
+          fill="none"
+          stroke="#22d3ee"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          points={pointsAttr}
+        />
+        {coords.map((c, i) => (
+          <circle key={i} cx={c.x} cy={c.y} r={3.5} fill="#0e7490" stroke="#67e8f9" strokeWidth={1} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function Tooltip({ text }: { text: string }) {
   const [visible, setVisible] = useState(false);
   return (
@@ -210,8 +278,9 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // StatCan retail
+  // StatCan retail (per demand category — Ontario NAICS via WDS when available)
   const [retailData, setRetailData] = useState<RetailDataPoint[]>([]);
+  const [retailMeta, setRetailMeta] = useState<OntarioRetailSeriesMeta | null>(null);
   const [retailLoading, setRetailLoading] = useState(true);
   const [retailError, setRetailError] = useState(false);
 
@@ -279,67 +348,77 @@ export default function Dashboard() {
     setHotPromoActive(act.hotTriggered);
   }, [weather, threshold, hotThreshold, setAvgTemp, setWetDays, setColdPromoActive, setHotPromoActive]);
 
-  /* ── Fetch StatCan retail index ───────────────────────────────────────── */
+  /* ── Fetch StatCan Ontario industry retail (NAICS via WDS) per food category ─ */
   useEffect(() => {
     setRetailLoading(true);
     setRetailError(false);
-    fetch(apiUrl("/api/statcan/ontario-retail"))
+    const q = new URLSearchParams({ demandCategory });
+    fetch(apiUrl(`/api/statcan/ontario-retail?${q.toString()}`))
       .then((r) => {
         if (!r.ok) throw new Error("StatCan error");
         return r.json();
       })
-      .then((json: { data: Array<{ period: string; value: number }>; trend: string; latestValue: number; changePercent: number }) => {
-        const obs: RetailDataPoint[] = (json?.data ?? []).map((pt) => ({
-          refPer: pt.period,
-          value: pt.value,
-        }));
-        setRetailData(obs);
-        setRetailLoading(false);
-      })
+      .then(
+        (json: {
+          data: Array<{ period: string; value: number }>;
+          trend: string;
+          latestValue: number;
+          changePercent: number;
+          meta?: OntarioRetailSeriesMeta;
+        }) => {
+          const obs: RetailDataPoint[] = (json?.data ?? []).map((pt) => ({
+            refPer: pt.period,
+            value: pt.value,
+          }));
+          setRetailData(obs);
+          setRetailMeta(json?.meta ?? null);
+          setRetailLoading(false);
+        }
+      )
       .catch(() => {
         setRetailError(true);
+        setRetailMeta(null);
         setRetailLoading(false);
       });
-  }, []);
+  }, [demandCategory]);
 
-  /* ── Fetch 511 traffic ────────────────────────────────────────────────── */
+  /* ── GTA traffic + macro strip in parallel (faster first paint) ──────── */
   useEffect(() => {
+    let cancelled = false;
     setTrafficLoading(true);
     setTrafficError(false);
-    fetch(apiUrl("/api/traffic/gta"))
-      .then((r) => {
-        if (!r.ok) throw new Error("511 error");
-        return r.json();
-      })
-      .then((data: { incidentCount: number; disruptionLevel: string; topEvents: Array<{ description: string; county: string; road: string }> }) => {
-        const events: TrafficEvent[] = (data.topEvents ?? []).map(e => ({
+    setMacroLoading(true);
+    const trafficP = fetch(apiUrl("/api/traffic/gta")).then((r) => {
+      if (!r.ok) throw new Error("511 error");
+      return r.json() as Promise<{
+        incidentCount: number;
+        disruptionLevel: string;
+        topEvents: Array<{ description: string; county: string; road: string }>;
+      }>;
+    });
+    const macroP = fetch(apiUrl("/api/signals/macro-strip")).then((r) => r.json() as Promise<MacroStripPayload>);
+    Promise.all([trafficP, macroP])
+      .then(([data, j]) => {
+        if (cancelled) return;
+        const events: TrafficEvent[] = (data.topEvents ?? []).map((e) => ({
           Description: e.description,
           County: e.county,
           EventType: "Incident",
         }));
         setTrafficEvents(events);
-        setTrafficLoading(false);
+        setMacroStrip(j);
       })
       .catch(() => {
-        setTrafficError(true);
-        setTrafficLoading(false);
-      });
-  }, []);
-
-  /* ── Unified retail_analytics macro strip (grocery + CPI) ───────────── */
-  useEffect(() => {
-    let cancelled = false;
-    setMacroLoading(true);
-    fetch(apiUrl("/api/signals/macro-strip"))
-      .then((r) => r.json())
-      .then((j: MacroStripPayload) => {
-        if (!cancelled) setMacroStrip(j);
-      })
-      .catch(() => {
-        if (!cancelled) setMacroStrip(null);
+        if (!cancelled) {
+          setTrafficError(true);
+          setMacroStrip(null);
+        }
       })
       .finally(() => {
-        if (!cancelled) setMacroLoading(false);
+        if (!cancelled) {
+          setTrafficLoading(false);
+          setMacroLoading(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -510,16 +589,28 @@ export default function Dashboard() {
     High: "#f87171",
   };
 
-  /* ── Retail trend ─────────────────────────────────────────────────────── */
-  const retailTrend = useMemo(() => {
-    if (retailData.length < 2) return null;
-    const sorted = [...retailData].sort(
-      (a, b) => new Date(a.refPer).getTime() - new Date(b.refPer).getTime()
-    );
-    const prev = sorted[sorted.length - 2].value;
-    const curr = sorted[sorted.length - 1].value;
-    return curr >= prev ? "up" : "down";
+  /* ── Ontario retail: category-scaled monthly → quarterly window ───────── */
+  const categoryRetailMonthly = useMemo(() => {
+    if (retailData.length === 0) return [];
+    return retailData.map((p) => ({ refPer: p.refPer, value: p.value }));
   }, [retailData]);
+
+  const retailQuartersAsc = useMemo(
+    () => aggregateQuarterly(categoryRetailMonthly),
+    [categoryRetailMonthly]
+  );
+
+  const retailQuartersWindow = useMemo(
+    () => lastNQuarters(retailQuartersAsc, 8),
+    [retailQuartersAsc]
+  );
+
+  const retailTrend = useMemo(() => {
+    if (retailQuartersAsc.length < 2) return null;
+    const prev = retailQuartersAsc[retailQuartersAsc.length - 2].value;
+    const curr = retailQuartersAsc[retailQuartersAsc.length - 1].value;
+    return curr >= prev ? "up" : "down";
+  }, [retailQuartersAsc]);
 
   /* ── Render ───────────────────────────────────────────────────────────── */
   return (
@@ -981,7 +1072,7 @@ export default function Dashboard() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 700, color: "#e2e8f0" }}>Cold comfort cut-off</span>
-              <Tooltip text="If the 3-day average is below this cut-off AND at least one of those days is wet (WMO rain/snow/drizzle/thunder/fog codes, or daily precip ≥0.15 mm), the cold comfort lane turns on — soup, hot beverages, pasta, baking." />
+              <Tooltip text="If the 3-day average is below this cut-off AND at least one of those days is wet (WMO rain/snow/drizzle/thunder/fog codes, or any trace daily precip &gt;0 mm from Open-Meteo), the cold comfort lane turns on — soup, hot beverages, pasta, baking." />
             </div>
             <span style={{ fontSize: "20px", fontWeight: 700, color: "#38bdf8" }}>{threshold}°C</span>
           </div>
@@ -1064,7 +1155,7 @@ export default function Dashboard() {
           )}
           <div className="slider-explain" style={{ marginTop: 12 }}>
             <strong style={{ color: "#f1f5f9" }}>How it works:</strong> The engine scores the same three forward days for two independent lanes —{" "}
-            <em>cold + wet</em> (WMO precip/fog codes or ≥0.15 mm daily precip) and <em>hot + dry</em> (no wet days). KPIs
+            <em>cold + wet</em> (WMO precip/fog codes or any trace daily precip) and <em>hot + dry</em> (no wet days). KPIs
             recompute when you move the sliders so you can stress-test cut-offs against the live forecast.
           </div>
         </div>
@@ -1156,7 +1247,7 @@ export default function Dashboard() {
                 </span>
                 <p style={{ margin: "10px 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.5, flex: 1 }}>
                   {kpi.coldTriggered ? (
-                    <>Avg below {kpi.threshold}°C and slice has rain/snow/fog or ≥0.15 mm precip on ≥1 day.</>
+                    <>Avg below {kpi.threshold}°C and slice has rain/snow/fog or trace precip (&gt;0 mm) on ≥1 day.</>
                   ) : kpi.avgTemp < kpi.threshold ? (
                     <>
                       Temp vs <strong style={{ color: "#94a3b8" }}>{kpi.threshold}°C</strong> is met, but the 3-day slice
@@ -1395,17 +1486,43 @@ export default function Dashboard() {
             marginBottom: "20px",
           }}
         >
-          {/* StatCan Retail */}
+          {/* StatCan Retail — quarterly Ontario NAICS (WDS) or scaled fallback */}
           <div className="dash-card">
-            <p className="section-title">Ontario Retail Sales</p>
+            <p className="section-title" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              Ontario retail · {demandCategory}
+              <Tooltip
+                text={
+                  retailMeta?.seriesKind === "ontario_naics_unadjusted"
+                    ? "Pulled live from Statistics Canada’s Web Data Service: Ontario monthly retail sales for the mapped NAICS industry (Table 20-10-0056-02). StatCan does not publish a seasonally adjusted Ontario series for this NAICS row here, so quarters sum raw monthly values (seasonal pattern remains). SKU-level soup vs ice cream is not split in official retail trade."
+                    : retailMeta?.seriesKind === "fallback_scaled_total_sa"
+                      ? "The NAICS feed was unavailable, so the tile temporarily scales Ontario total retail (Table 20-10-0056-01, seasonally adjusted) by a small illustrative share for this dashboard category."
+                      : "Ontario retail macro tied to your food category: official NAICS industry data from StatCan when available, otherwise a scaled provincial total."
+                }
+              />
+            </p>
             <p
               style={{
-                margin: "-8px 0 14px",
+                margin: "-8px 0 10px",
                 fontSize: "13px",
                 color: "#64748b",
+                lineHeight: 1.45,
               }}
             >
-              Monthly Ontario total retail sales (millions CAD) · Statistics Canada Table 20-10-0056-01 · Seasonally adjusted
+              {retailMeta?.seriesKind === "ontario_naics_unadjusted" ? (
+                <>
+                  Quarterly sales (M$ CAD) — {retailMeta.statcanSeriesTitle ?? "Ontario NAICS industry"}.{" "}
+                  {retailMeta.table ?? "Statistics Canada Table 20-10-0056-02"}.
+                </>
+              ) : retailMeta?.seriesKind === "fallback_scaled_total_sa" ? (
+                <>
+                  Quarterly estimated sales (M$ CAD) — {retailMeta.table ?? "Scaled from Ontario total retail (SA)"}.
+                </>
+              ) : (
+                <>
+                  Quarterly sales (M$ CAD) — Statistics Canada Ontario retail context for{" "}
+                  <strong>{demandCategory}</strong> (NAICS industry or fallback).
+                </>
+              )}
             </p>
             {retailLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1431,21 +1548,19 @@ export default function Dashboard() {
               <p style={{ color: "#64748b", fontSize: "14px" }}>
                 No retail data available.
               </p>
+            ) : retailQuartersWindow.length === 0 ? (
+              <p style={{ color: "#64748b", fontSize: "14px" }}>Not enough months to build a quarter yet.</p>
             ) : (
               <>
+                <OntarioQuarterSparkline values={retailQuartersWindow.map((q) => q.value)} />
                 {(() => {
-                  const sorted = [...retailData].sort(
-                    (a, b) =>
-                      new Date(a.refPer).getTime() -
-                      new Date(b.refPer).getTime()
-                  );
-                  return sorted.map((pt, i) => {
-                    const isLatest = i === sorted.length - 1;
-                    const prev = i > 0 ? sorted[i - 1].value : null;
-                    const diff =
-                      prev !== null ? pt.value - prev : null;
+                  const rows = [...retailQuartersWindow].reverse();
+                  return rows.map((pt, i) => {
+                    const isLatest = i === 0;
+                    const older = rows[i + 1];
+                    const diff = older != null ? pt.value - older.value : null;
                     return (
-                      <div key={pt.refPer} className="retail-row">
+                      <div key={pt.label} className="retail-row">
                         <span
                           style={{
                             fontSize: "14px",
@@ -1453,7 +1568,7 @@ export default function Dashboard() {
                             fontWeight: isLatest ? 600 : 400,
                           }}
                         >
-                          {formatStatCanMonth(pt.refPer)}
+                          {pt.label}
                         </span>
                         <div
                           style={{
@@ -1475,10 +1590,7 @@ export default function Dashboard() {
                             <span
                               style={{
                                 fontSize: "18px",
-                                color:
-                                  retailTrend === "up"
-                                    ? "#34d399"
-                                    : "#f87171",
+                                color: retailTrend === "up" ? "#34d399" : "#f87171",
                               }}
                             >
                               {retailTrend === "up" ? "↑" : "↓"}
@@ -1488,12 +1600,12 @@ export default function Dashboard() {
                             <span
                               style={{
                                 fontSize: "12px",
-                                color:
-                                  diff >= 0 ? "#34d399" : "#f87171",
+                                color: diff >= 0 ? "#34d399" : "#f87171",
                               }}
                             >
                               {diff >= 0 ? "+" : ""}
                               {formatOntarioRetailDeltaMillionsCAD(diff)}
+                              <span style={{ color: "#64748b", marginLeft: 4 }}>vs prev Q</span>
                             </span>
                           )}
                         </div>
