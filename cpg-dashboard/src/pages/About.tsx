@@ -288,10 +288,46 @@ const linkStyle: React.CSSProperties = {
 };
 
 /** Live list from /api/datasets + meta.datasets_used from unified_signal.json */
+type GroceryMonthRow = {
+  month?: string;
+  mean_list_price?: number;
+  median_list_price?: number;
+  rows_used?: number;
+  rows_cap?: number;
+  file?: string;
+  error?: string;
+};
+
+type RetailAnalyticsBlock = {
+  source_folder_name?: string;
+  merged_at?: string;
+  grocery_listings_by_month?: GroceryMonthRow[];
+  supermarket_sales?: {
+    total_revenue?: number;
+    rows?: number;
+    revenue_by_region?: Array<{ region: string; revenue: number }>;
+    error?: string;
+  };
+  toronto_daily_weather_file?: {
+    date_min?: string;
+    date_max?: string;
+    rows?: number;
+    last_90_days?: { avg_temp_c?: number; total_precip_mm?: number };
+    error?: string;
+  };
+  macro_cma?: {
+    cpi?: { latest_period?: string; value?: number | null; city?: string };
+    unemployment_rate?: { latest_period?: string; value?: number | null; city?: string };
+  };
+  other_csv_inventory?: Array<{ file: string; size_mb: number }>;
+};
+
 const DataSourcesSection: React.FC = () => {
   const [catalog, setCatalog] = useState<CatalogDataset[] | null>(null);
   const [datasetsUsed, setDatasetsUsed] = useState<string[] | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [retailMergedAt, setRetailMergedAt] = useState<string | null>(null);
+  const [retailAnalytics, setRetailAnalytics] = useState<RetailAnalyticsBlock | null>(null);
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [unifiedError, setUnifiedError] = useState<string | null>(null);
@@ -325,12 +361,20 @@ const DataSourcesSection: React.FC = () => {
         if (uniRes.ok) {
           try {
             const uni = (await uniRes.json()) as {
-              meta?: { datasets_used?: string[]; last_updated?: string };
+              meta?: {
+                datasets_used?: string[];
+                last_updated?: string;
+                retail_analytics_merged_at?: string;
+              };
+              retail_analytics?: RetailAnalyticsBlock;
             };
             const used = uni.meta?.datasets_used;
             setDatasetsUsed(Array.isArray(used) ? used : []);
             const lu = uni.meta?.last_updated;
             setLastUpdated(typeof lu === "string" ? lu : null);
+            const rma = uni.meta?.retail_analytics_merged_at;
+            setRetailMergedAt(typeof rma === "string" ? rma : null);
+            setRetailAnalytics(uni.retail_analytics ?? null);
           } catch {
             setUnifiedError("Could not parse unified signal.");
             setDatasetsUsed([]);
@@ -342,6 +386,8 @@ const DataSourcesSection: React.FC = () => {
               : `Unified signal HTTP ${uniRes.status}`
           );
           setDatasetsUsed([]);
+          setRetailMergedAt(null);
+          setRetailAnalytics(null);
         }
         setLoading(false);
       }
@@ -402,6 +448,108 @@ const DataSourcesSection: React.FC = () => {
               )
             )}
           </div>
+
+          {retailAnalytics && (
+            <div style={S.card}>
+              <h3 style={S.h3}>Local retail_analytics merge</h3>
+              <p style={{ ...S.body, marginBottom: 12 }}>
+                Summaries from CSVs in your <span style={S.accentCyan}>retail_analytics</span> workspace, merged by{" "}
+                <code style={{ color: "#94a3b8" }}>python 11_merge_retail_analytics.py</code> into the unified signal.
+              </p>
+              {retailAnalytics.source_folder_name && (
+                <p style={{ ...S.body, fontSize: 14, marginBottom: 12 }}>
+                  <span style={S.accentGreen}>Source folder:</span> {retailAnalytics.source_folder_name}
+                </p>
+              )}
+              {retailMergedAt && (
+                <p style={{ ...S.body, fontSize: 14, marginBottom: 16 }}>
+                  <span style={S.accentGreen}>Merged at:</span>{" "}
+                  {new Date(retailMergedAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                </p>
+              )}
+
+              {retailAnalytics.grocery_listings_by_month && retailAnalytics.grocery_listings_by_month.length > 0 && (
+                <>
+                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Grocery listing prices (capped rows / month)</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, color: "#94a3b8" }}>
+                      <thead>
+                        <tr style={{ textAlign: "left", borderBottom: "1px solid #334155" }}>
+                          <th style={{ padding: "6px 8px" }}>Month</th>
+                          <th style={{ padding: "6px 8px" }}>Mean price</th>
+                          <th style={{ padding: "6px 8px" }}>Rows used</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {retailAnalytics.grocery_listings_by_month.map((row) => (
+                          <tr key={row.month ?? row.file} style={{ borderBottom: "1px solid #1e293b" }}>
+                            <td style={{ padding: "6px 8px", color: "#e2e8f0" }}>{row.month ?? row.file}</td>
+                            <td style={{ padding: "6px 8px" }}>
+                              {row.error ? (
+                                <span style={{ color: "#fbbf24" }}>{row.error}</span>
+                              ) : (
+                                (row.mean_list_price ?? "—").toString()
+                              )}
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>{row.rows_used ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {retailAnalytics.supermarket_sales && !retailAnalytics.supermarket_sales.error && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Supermarket pipeline (sample CSV)</div>
+                  <p style={S.body}>
+                    Total revenue <strong style={{ color: "#e2e8f0" }}>{retailAnalytics.supermarket_sales.total_revenue}</strong> across{" "}
+                    <strong style={{ color: "#e2e8f0" }}>{retailAnalytics.supermarket_sales.rows}</strong> rows.
+                  </p>
+                  <ul style={{ ...S.body, margin: "8px 0 0", paddingLeft: 20 }}>
+                    {(retailAnalytics.supermarket_sales.revenue_by_region ?? []).slice(0, 6).map((r) => (
+                      <li key={r.region}>
+                        {r.region}: {r.revenue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {retailAnalytics.toronto_daily_weather_file && !retailAnalytics.toronto_daily_weather_file.error && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Toronto daily weather file</div>
+                  <p style={S.body}>
+                    {retailAnalytics.toronto_daily_weather_file.date_min} → {retailAnalytics.toronto_daily_weather_file.date_max} (
+                    {retailAnalytics.toronto_daily_weather_file.rows} rows). Last 90 rows: avg temp{" "}
+                    {retailAnalytics.toronto_daily_weather_file.last_90_days?.avg_temp_c ?? "—"}°C, precip sum{" "}
+                    {retailAnalytics.toronto_daily_weather_file.last_90_days?.total_precip_mm ?? "—"} mm.
+                  </p>
+                </div>
+              )}
+
+              {(retailAnalytics.macro_cma?.cpi?.value != null ||
+                retailAnalytics.macro_cma?.unemployment_rate?.value != null) && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ ...S.techLabel, marginBottom: 8 }}>Greater Toronto macro (CMA tables)</div>
+                  <ul style={{ ...S.body, margin: 0, paddingLeft: 20 }}>
+                    {retailAnalytics.macro_cma?.cpi?.value != null && (
+                      <li>
+                        CPI ({retailAnalytics.macro_cma?.cpi?.latest_period}): {retailAnalytics.macro_cma?.cpi?.value}
+                      </li>
+                    )}
+                    {retailAnalytics.macro_cma?.unemployment_rate?.value != null && (
+                      <li>
+                        Unemployment ({retailAnalytics.macro_cma?.unemployment_rate?.latest_period}):{" "}
+                        {retailAnalytics.macro_cma?.unemployment_rate?.value}%
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={S.card}>
             <h3 style={S.h3}>Kaggle source catalog</h3>

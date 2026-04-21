@@ -419,6 +419,42 @@ function crossPairsForBasketAnchor(
   return pick.map(toRow).filter((r) => r.pair);
 }
 
+function formatRetailAnalyticsForPrompt(unified: Record<string, unknown> | null): string {
+  const ra = unified?.retail_analytics as Record<string, unknown> | undefined;
+  if (!ra) return "";
+  const lines: string[] = [];
+  const grocery = ra.grocery_listings_by_month as
+    | Array<{ month?: string; mean_list_price?: number; rows_used?: number }>
+    | undefined;
+  if (grocery?.length) {
+    const withPrice = grocery.filter((x) => x.mean_list_price != null).slice(-4);
+    if (withPrice.length) {
+      lines.push(
+        withPrice
+          .map((x) => `${x.month ?? "?"} mean list $${x.mean_list_price} (n≈${x.rows_used ?? "?"})`)
+          .join("; ")
+      );
+    }
+  }
+  const sm = ra.supermarket_sales as Record<string, unknown> | undefined;
+  if (sm && !sm.error && typeof sm.total_revenue === "number") {
+    const regs = (sm.revenue_by_region as Array<{ region?: string; revenue?: number }> | undefined)?.slice(0, 4) ?? [];
+    lines.push(`Supermarket sales CSV total revenue ${sm.total_revenue}; top regions: ${regs.map((r) => `${r.region} $${r.revenue}`).join(", ")}`);
+  }
+  const wx = ra.toronto_daily_weather_file as Record<string, unknown> | undefined;
+  const l90 = wx?.last_90_days as Record<string, unknown> | undefined;
+  if (l90 && (l90.avg_temp_c != null || l90.total_precip_mm != null)) {
+    lines.push(`Toronto daily weather (last 90 rows in file): avg ${l90.avg_temp_c ?? "?"}C, precip sum ${l90.total_precip_mm ?? "?"}mm`);
+  }
+  const macro = ra.macro_cma as Record<string, unknown> | undefined;
+  const cpi = macro?.cpi as Record<string, unknown> | undefined;
+  const un = macro?.unemployment_rate as Record<string, unknown> | undefined;
+  if (cpi?.value != null) lines.push(`Toronto CPI latest column ${cpi.latest_period}: ${cpi.value}`);
+  if (un?.value != null) lines.push(`Toronto unemployment (${un.latest_period}): ${un.value}%`);
+  if (!lines.length) return "";
+  return `\nExternal retail CSV layer (merged from local folder):\n${lines.map((l) => `- ${l}`).join("\n")}`;
+}
+
 function buildPitchPrompt(
   city: string,
   weatherData: { forecast: ForecastDay[]; trigger: ReturnType<typeof evaluateTrigger> },
@@ -454,6 +490,7 @@ function buildPitchPrompt(
     : "Demographic soup segment: not available.";
 
   const datasets   = ((unified?.meta as Record<string, unknown> | undefined)?.datasets_used as string[] | undefined) ?? [];
+  const retailBlock  = formatRetailAnalyticsForPrompt(unified);
 
   const threshold    = options?.threshold ?? WEATHER_THRESHOLD;
   const traffic      = options?.trafficDisruption ?? "Unknown";
@@ -517,6 +554,7 @@ ${crossLines || "- not available"}
 Promo: ${promoCats} categories analysed, best store tier: ${bestTier}
 Price elasticity: ${elasticN} elastic categories
 Demographics: ${demoLine}
+${retailBlock || ""}
 
 DELIVERABLES
 ---------------------------------

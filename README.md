@@ -251,6 +251,11 @@ python 09_demographic_segmentation.py
 
 # Merge all signals into a single JSON
 python 10_unified_signal.py
+
+# Optional: merge CSV summaries from ../retail_analytics (or RETAIL_ANALYTICS_DIR)
+# into unified_signal.json under "retail_analytics" (grocery monthly prices,
+# supermarket_sales, Toronto weatherstats, CMA CPI / unemployment, file inventory).
+python 11_merge_retail_analytics.py
 ```
 
 ### 6. Test the Weather Trigger

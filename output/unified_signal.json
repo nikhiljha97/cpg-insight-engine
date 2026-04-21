@@ -4,9 +4,11 @@
       "Complete Journey (2.59M transactions, 8 tables)",
       "Carbo-Loading (5.19M transactions, Pasta/Sauce/Syrup)",
       "Breakfast at the Frat (682K rows, 156 weeks, price+promo)",
-      "Let's Get Sort-of-Real (300M transactions, basket missions)"
+      "Let's Get Sort-of-Real (300M transactions, basket missions)",
+      "Local retail_analytics folder (retail_analytics)"
     ],
-    "last_updated": "2026-04-14T02:03:11.834824"
+    "last_updated": "2026-04-14T02:03:11.834824",
+    "retail_analytics_merged_at": "2026-04-21T13:10:45.383550"
   },
   "basket_analysis": {
     "soup_companions": [
@@ -866,6 +868,197 @@
         "weeks": "69-102",
         "segment": "Non-Soup Buyer",
         "avg_spend": 3.357
+      }
+    ]
+  },
+  "retail_analytics": {
+    "source_folder_name": "retail_analytics",
+    "merged_at": "2026-04-21T13:10:45.383550",
+    "grocery_listings_by_month": [
+      {
+        "month": "2025-04",
+        "rows_used": 10024,
+        "rows_cap": 200000,
+        "mean_list_price": 7.6105,
+        "median_list_price": 5.49,
+        "file": "grocery_data_apr_2025.csv"
+      },
+      {
+        "month": "2025-08",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 7.0736,
+        "median_list_price": 4.99,
+        "file": "grocery_data_aug_2025.csv"
+      },
+      {
+        "month": "2025-12",
+        "rows_used": 10035,
+        "rows_cap": 200000,
+        "mean_list_price": 5.8802,
+        "median_list_price": 4.79,
+        "file": "grocery_data_dec_2025.csv"
+      },
+      {
+        "month": "2025-02",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 7.5811,
+        "median_list_price": 5.49,
+        "file": "grocery_data_feb_2025.csv"
+      },
+      {
+        "month": "2025-01",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 7.3937,
+        "median_list_price": 5.0,
+        "file": "grocery_data_jan_2025.csv"
+      },
+      {
+        "month": "2025-07",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 5.7233,
+        "median_list_price": 4.79,
+        "file": "grocery_data_jul_2025.csv"
+      },
+      {
+        "month": "2025-06",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 7.7037,
+        "median_list_price": 5.49,
+        "file": "grocery_data_jun_2025.csv"
+      },
+      {
+        "month": "2025-03",
+        "rows_used": 10029,
+        "rows_cap": 200000,
+        "mean_list_price": 7.5528,
+        "median_list_price": 5.44,
+        "file": "grocery_data_mar_2025.csv"
+      },
+      {
+        "month": "2025-05",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 7.4324,
+        "median_list_price": 5.29,
+        "file": "grocery_data_may_2025.csv"
+      },
+      {
+        "month": "2025-11",
+        "rows_used": 10017,
+        "rows_cap": 200000,
+        "mean_list_price": 5.9677,
+        "median_list_price": 4.99,
+        "file": "grocery_data_nov_2025.csv"
+      },
+      {
+        "month": "2025-10",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 5.7979,
+        "median_list_price": 4.79,
+        "file": "grocery_data_oct_2025.csv"
+      },
+      {
+        "month": "2025-09",
+        "rows_used": 10032,
+        "rows_cap": 200000,
+        "mean_list_price": 5.8267,
+        "median_list_price": 4.79,
+        "file": "grocery_data_sep_2025.csv"
+      }
+    ],
+    "supermarket_sales": {
+      "file": "supermarket_sales.csv",
+      "rows": 5000,
+      "total_revenue": 2511950.0,
+      "revenue_by_region": [
+        {
+          "region": "North",
+          "revenue": 659064.0
+        },
+        {
+          "region": "West",
+          "revenue": 629609.0
+        },
+        {
+          "region": "East",
+          "revenue": 613880.0
+        },
+        {
+          "region": "South",
+          "revenue": 609397.0
+        }
+      ]
+    },
+    "toronto_daily_weather_file": {
+      "file": "weatherstats_toronto_daily.csv",
+      "rows": 32036,
+      "date_min": "1937-10-31",
+      "date_max": "2025-07-16",
+      "last_90_days": {
+        "avg_temp_c": 17.51,
+        "total_precip_mm": 178.6
+      }
+    },
+    "macro_cma": {
+      "cpi": {
+        "file": "CPI_CMA_2006_2024.csv",
+        "city": "Toronto",
+        "latest_period": "25-Jun",
+        "value": 168.1
+      },
+      "unemployment_rate": {
+        "file": "unemployment_by_CMA_2006_2024.csv",
+        "city": "Toronto",
+        "latest_period": "2024",
+        "value": 8.0
+      }
+    },
+    "other_csv_inventory": [
+      {
+        "file": "Global_Ecommerce_Customer_Behavior.csv",
+        "size_mb": 9.79
+      },
+      {
+        "file": "Tech_Gadget_Usage_and_Mental_Wellbeing.csv",
+        "size_mb": 0.07
+      },
+      {
+        "file": "Ventas_Marketing_V3.csv",
+        "size_mb": 1.59
+      },
+      {
+        "file": "calendar.csv",
+        "size_mb": 0.02
+      },
+      {
+        "file": "cosmetics_sales_data.csv",
+        "size_mb": 0.02
+      },
+      {
+        "file": "crime_rate_CMA_2006_2023.csv",
+        "size_mb": 0.0
+      },
+      {
+        "file": "dataset.csv",
+        "size_mb": 0.06
+      },
+      {
+        "file": "housing_price_index_by_CMA_2006_2023.csv",
+        "size_mb": 0.01
+      },
+      {
+        "file": "not_in_labour_force_by_CMA_2006_2024.csv",
+        "size_mb": 0.0
+      },
+      {
+        "file": "population_by_CMA_2006_2023.csv",
+        "size_mb": 0.0
       }
     ]
   }
