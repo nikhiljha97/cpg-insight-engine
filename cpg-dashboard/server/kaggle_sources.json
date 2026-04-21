@@ -1,0 +1,32 @@
+{
+  "datasets": [
+    {
+      "id": "dunnhumby-complete-journey",
+      "name": "Dunnhumby — The Complete Journey",
+      "role": "Primary basket and pathing signal",
+      "kaggle_url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey",
+      "notes": "Core co-purchase and cross-department lift; raw CSVs stay local / gitignored."
+    },
+    {
+      "id": "dunnhumby-carbo-loading",
+      "name": "Dunnhumby — Carbo-Loading",
+      "role": "Pasta, sauce, syrup missions",
+      "kaggle_url": "https://www.kaggle.com/datasets/mylesoneill/dunnhumby-carbo-loading",
+      "notes": "Merged into unified_signal.json via pipeline scripts."
+    },
+    {
+      "id": "dunnhumby-breakfast-frat",
+      "name": "Dunnhumby — Breakfast at the Frat",
+      "role": "Price + promo elasticity",
+      "kaggle_url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-breakfast-at-the-frat",
+      "notes": "Feeds promo_attribution and price_elasticity sections when present."
+    },
+    {
+      "id": "dunnhumby-sort-of-real",
+      "name": "Dunnhumby — Let's Get Sort-of-Real",
+      "role": "Large-scale basket missions",
+      "kaggle_url": "https://www.kaggle.com/datasets/frtgnn/dunnhumby-lets-get-sort-of-real",
+      "notes": "Optional scale layer; listed in unified meta.datasets_used when integrated."
+    }
+  ]
+}

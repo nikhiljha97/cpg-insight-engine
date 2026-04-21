@@ -72,6 +72,10 @@ textarea {
   font-size: 0.82rem;
 }
 
+.muted {
+  color: var(--muted);
+}
+
 .nav-list {
   display: grid;
   gap: 10px;
