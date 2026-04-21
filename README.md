@@ -208,12 +208,19 @@ pip install -r requirements.txt
 
 ### 3. Download Dunnhumby Datasets
 
-Download the following datasets from [dunnhumby.com/source-files](https://www.dunnhumby.com/source-files/) and place the CSV files in the project root:
+Download the following datasets from [dunnhumby.com/source-files](https://www.dunnhumby.com/source-files/) (or Kaggle equivalents) and place the extracted CSV/XLSX files either **in the project root** or in **one folder** (for example your Desktop).
 
 - The Complete Journey
 - Carbo-Loading
 - Breakfast at the Frat
 - Let's Get Sort-of-Real
+
+If the files live outside the repo (e.g. `~/Desktop`), set **`CPG_DATA_DIR`** before running the loaders (both scripts read the same variable):
+
+```bash
+export CPG_DATA_DIR="$HOME/Desktop"
+# or: export CPG_DATA_DIR="$HOME/Desktop/dunnhumby-data"
+```
 
 ### 4. Build the Analytical Database
 

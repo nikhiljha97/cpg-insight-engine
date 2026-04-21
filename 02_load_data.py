@@ -8,8 +8,11 @@ USAGE
 -----
 1. Download the dataset from Kaggle:
    https://www.kaggle.com/datasets/frtgnn/dunnhumby-the-complete-journey
-2. Unzip all CSVs into the same folder as this script  (or update DATA_DIR).
-3. Run:  python 02_load_data.py
+2. Unzip all CSVs into the repo root, OR any folder on your machine.
+3. Optional: point the loader at that folder (example: Desktop):
+     export CPG_DATA_DIR=~/Desktop
+     export CPG_DATA_DIR=~/Desktop/my-dunnhumby-csvs
+4. Run from repo root:  python 02_load_data.py
 
 REQUIREMENTS
 ------------
@@ -22,9 +25,10 @@ import duckdb
 import pandas as pd
 
 # ── Config ────────────────────────────────────────────────────────────────────
-DB_PATH   = "retail.duckdb"          # DuckDB file created in current directory
-DATA_DIR  = "."                      # Folder containing the CSVs
-SCHEMA_FILE = "01_schema.sql"        # DDL file from step 1
+DB_PATH   = "retail.duckdb"          # DuckDB file created in current working directory
+# Folder with Complete Journey CSVs — override with env (e.g. ~/Desktop)
+DATA_DIR  = os.path.abspath(os.path.expanduser(os.environ.get("CPG_DATA_DIR", ".")))
+SCHEMA_FILE = "01_schema.sql"        # DDL file from step 1 (repo root)
 
 # Kaggle CSV filenames → target DuckDB table names
 FILE_MAP = {
@@ -71,6 +75,7 @@ def main():
     print(f"\n{'='*60}")
     print("  Dunnhumby Retail Analytics — Data Loader")
     print(f"{'='*60}\n")
+    print(f"  CSV source directory: {DATA_DIR}\n")
 
     # 1. Connect (creates file if it doesn't exist)
     con = duckdb.connect(DB_PATH)
