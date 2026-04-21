@@ -1,6 +1,11 @@
 node_modules/
 cpg-dashboard/node_modules/
 cpg-dashboard/dist/
+cpg-dashboard/test-results/
+cpg-dashboard/playwright-report/
+cpg-dashboard/blob-report/
+cpg-dashboard/e2e-last.log
+cpg-dashboard/e2e-exit.txt
 *.duckdb
 *.duckdb.wal
 *.db

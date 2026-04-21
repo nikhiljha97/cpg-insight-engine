@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx server/index.ts",
     "build": "vite build",
-    "start": "node --import tsx/esm server/index.ts"
+    "start": "node --import tsx/esm server/index.ts",
+    "test:e2e": "bash scripts/e2e.sh",
+    "test:e2e:headed": "bash scripts/e2e.sh --headed"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +38,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.3",
     "@types/node": "^24.7.2"

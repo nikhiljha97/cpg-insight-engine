@@ -309,6 +309,8 @@ npm run dev:client   # Starts Vite dev server
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+**Headless UAT:** from `cpg-dashboard`, run `npm run test:e2e` — it builds the client, starts the API and `vite preview`, then runs Playwright against all main routes (weather/StatCan/traffic and basket insights are stubbed for speed and determinism). The same command runs in **GitHub Actions** on every push (see `.github/workflows/ci.yml`).
+
 ---
 
 ## Automation (GitHub Actions)
