@@ -1,0 +1,30 @@
+# Render Blueprint — connect this repo in the Render dashboard:
+# New → Blueprint → paste repo URL → Render reads render.yaml
+#
+# Preserves the two-service layout:
+#   - https://cpg-insight-engine-api.onrender.com  (Express API)
+#   - https://cpg-insight-engine.onrender.com    (Vite static build → CDN)
+#
+# Set GROQ_API_KEY on the API service in the dashboard (secret).
+
+services:
+  - type: web
+    name: cpg-insight-engine-api
+    runtime: node
+    plan: free
+    rootDir: cpg-dashboard
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/cities
+    envVars:
+      - key: NODE_VERSION
+        value: "22.16.0"
+      - key: GROQ_API_KEY
+        sync: false
+
+  - type: web
+    name: cpg-insight-engine
+    runtime: static
+    rootDir: cpg-dashboard
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./cpg-dashboard/dist

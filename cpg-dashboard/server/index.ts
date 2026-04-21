@@ -33,7 +33,7 @@ type ForecastDay = {
   inTriggerWindow: boolean;
 };
 
-const PORT = 4000;
+const PORT = Number(process.env.PORT) || 4000;
 const WEATHER_THRESHOLD = 12;
 const DB_PATH = "cpg.db";
 const UNIFIED_SIGNAL_PATH = path.join(process.cwd(), "..", "output", "unified_signal.json");
@@ -121,7 +121,15 @@ const listPitches = db.prepare(`
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: "https://cpg-insight-engine.onrender.com" }));
+const corsOrigins = [
+  "https://cpg-insight-engine.onrender.com",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  ...(process.env.CORS_ORIGINS?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) ?? [])
+];
+app.use(cors({ origin: corsOrigins }));
 
 function readUnifiedSignal(): Record<string, unknown> | null {
   try {
@@ -889,7 +897,7 @@ app.get("/api/traffic/gta", async (_req, res) => {
 });
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`CPG dashboard API server listening on http://localhost:${PORT}`);
+  console.log(`CPG dashboard API server listening on port ${PORT}`);
 });
 
 server.keepAliveTimeout = 0;

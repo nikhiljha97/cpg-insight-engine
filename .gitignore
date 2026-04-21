@@ -1,5 +1,6 @@
 node_modules/
 cpg-dashboard/node_modules/
+cpg-dashboard/dist/
 *.duckdb
 *.duckdb.wal
 *.db
