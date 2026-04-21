@@ -4,6 +4,7 @@ import Groq from "groq-sdk";
 import fs from "node:fs";
 import path from "node:path";
 import cors from "cors";
+import { isDemandCategory, type DemandCategory } from "../src/constants/demandCategories.js";
 
 // ── Cache types ──────────────────────────────────────────────
 interface CacheEntry<T> { data: T; fetchedAt: number; }
@@ -419,6 +420,183 @@ function crossPairsForBasketAnchor(
   return pick.map(toRow).filter((r) => r.pair);
 }
 
+/** Map dashboard demand category to the internal anchor key used for pair heuristics. */
+function mapDemandCategoryToAnchorKey(category: DemandCategory): BasketAnchorKey {
+  switch (category) {
+    case "Canned Soup":
+      return "soup";
+    case "Hot Beverages":
+    case "Soft Drinks":
+    case "Ice Cream":
+    case "Bag Snacks":
+      return "soft_drinks";
+    case "BBQ Meats":
+    case "Frozen Pizza":
+      return "bbq";
+    case "Pasta & Sauce":
+    case "Cold Cereal":
+      return "produce";
+    default:
+      return "soup";
+  }
+}
+
+const STATIC_DEMAND_COMPANIONS: Record<DemandCategory, Array<{ product: string; pct: number }>> = {
+  "Canned Soup": [],
+  "Hot Beverages": [
+    { product: "Coffee / tea pods", pct: 44 },
+    { product: "Fluid Milk", pct: 36 },
+    { product: "Sugar & sweeteners", pct: 28 },
+    { product: "Creamers", pct: 26 },
+    { product: "Mugs & disposables", pct: 18 },
+    { product: "Breakfast bars", pct: 17 },
+    { product: "Bottled Water", pct: 15 },
+    { product: "Cookies", pct: 14 },
+  ],
+  "Pasta & Sauce": [
+    { product: "Shredded Cheese", pct: 52 },
+    { product: "Ground Beef", pct: 39 },
+    { product: "Garlic bread", pct: 33 },
+    { product: "Parmesan / hard cheese", pct: 31 },
+    { product: "Bagged Salad", pct: 27 },
+    { product: "Frozen vegetables", pct: 24 },
+    { product: "Italian dressing", pct: 21 },
+    { product: "Red wine (adjacent)", pct: 12 },
+  ],
+  "Frozen Pizza": [
+    { product: "Bag Snacks", pct: 46 },
+    { product: "Soft Drinks", pct: 38 },
+    { product: "Ice Cream", pct: 34 },
+    { product: "Dipping sauces", pct: 29 },
+    { product: "Frozen appetizers", pct: 25 },
+    { product: "Paper plates", pct: 22 },
+    { product: "Juice (shelf-stable)", pct: 18 },
+    { product: "Chocolate Candy", pct: 16 },
+  ],
+  "Bag Snacks": [
+    { product: "Soft Drinks", pct: 51 },
+    { product: "Dip / salsa", pct: 36 },
+    { product: "Sandwich bread", pct: 28 },
+    { product: "Lunch meat", pct: 24 },
+    { product: "Cheese singles", pct: 22 },
+    { product: "Cookies", pct: 20 },
+    { product: "Crackers", pct: 19 },
+    { product: "Juice boxes", pct: 15 },
+  ],
+  "Cold Cereal": [
+    { product: "Fluid Milk", pct: 58 },
+    { product: "Bananas", pct: 35 },
+    { product: "Yogurt cups", pct: 30 },
+    { product: "Orange Juice", pct: 26 },
+    { product: "Berries (frozen)", pct: 21 },
+    { product: "Granola bars", pct: 19 },
+    { product: "Paper bowls", pct: 14 },
+    { product: "Honey / syrup", pct: 12 },
+  ],
+  "Soft Drinks": [
+    { product: "Bag Snacks", pct: 47 },
+    { product: "Frozen Pizza", pct: 29 },
+    { product: "Ice Cream", pct: 27 },
+    { product: "Sandwich buns", pct: 22 },
+    { product: "Hot dogs", pct: 20 },
+    { product: "Chocolate Candy", pct: 18 },
+    { product: "Cookies", pct: 17 },
+    { product: "Bottled Water", pct: 16 },
+  ],
+  "Ice Cream": [
+    { product: "Cones / toppings", pct: 41 },
+    { product: "Chocolate syrup", pct: 33 },
+    { product: "Whipped topping", pct: 30 },
+    { product: "Soft Drinks", pct: 28 },
+    { product: "Cookies", pct: 24 },
+    { product: "Paper bowls", pct: 19 },
+    { product: "Frozen fruit", pct: 16 },
+    { product: "Sprinkles / mix-ins", pct: 14 },
+  ],
+  "BBQ Meats": [
+    { product: "Hot Dog Buns", pct: 58 },
+    { product: "Hamburger Buns", pct: 52 },
+    { product: "Condiments (ketchup/mustard)", pct: 41 },
+    { product: "Bag Snacks", pct: 36 },
+    { product: "Soft Drinks", pct: 34 },
+    { product: "Shredded Cheese", pct: 28 },
+    { product: "Paper Plates", pct: 22 },
+    { product: "Frozen Patties", pct: 21 },
+  ],
+};
+
+const PAIR_HINTS: Record<DemandCategory, RegExp> = {
+  "Canned Soup": /soup|broth|milk|bread|banana|cheese|cereal|noodle|cracker|juice|chip|dog|bun|patty|beef|meat/i,
+  "Hot Beverages": /coffee|tea|cocoa|cream|milk|sugar|sweet|drink|juice|water|chip|candy|cookie/i,
+  "Pasta & Sauce": /pasta|sauce|cheese|beef|pork|biscuit|seasoning|mexican|lean|cream|salad/i,
+  "Frozen Pizza": /pizza|frozen|chip|snack|ice|drink|bun|patty|beef|meat|dog|cone|candy/i,
+  "Bag Snacks": /chip|snack|drink|juice|bread|meat|cheese|dip|salsa|cookie|candy|dog|bun/i,
+  "Cold Cereal": /cereal|milk|juice|banana|yogurt|berry|bar|honey|bowl|oat/i,
+  "Soft Drinks": /drink|chip|pizza|ice|cream|cookie|candy|bun|dog|water|juice|snack/i,
+  "Ice Cream": /ice|cream|cone|chocolate|cookie|candy|drink|chip|topping|fruit|bowl/i,
+  "BBQ Meats": /bbq|grill|dog|bun|patty|hamburger|beef|meat|pork|biscuit|chip|drink|cheese/i,
+};
+
+function companionsForDemandCategory(
+  unified: Record<string, unknown> | null,
+  category: DemandCategory
+): Array<{ product: string; pct: number }> {
+  if (category === "Canned Soup") {
+    const soup = readSoupCompanions(unified);
+    if (soup.length) return soup;
+  }
+  const staticRows = STATIC_DEMAND_COMPANIONS[category];
+  if (staticRows.length) return staticRows;
+  return readSoupCompanions(unified);
+}
+
+function crossPairsForDemandCategory(
+  unified: Record<string, unknown> | null,
+  category: DemandCategory
+): Array<{ pair: string; lift: string; support: string }> {
+  const basket = unified?.basket_analysis as Record<string, unknown> | undefined;
+  const rows =
+    (basket?.top_cross_dept_pairs as Array<{ pair?: string; lift?: number }> | undefined) ?? [];
+  const hint = PAIR_HINTS[category];
+  const byHint = rows.filter((r) => hint.test(String(r.pair ?? "")));
+  const keyedRows = crossPairsForBasketAnchor(unified, mapDemandCategoryToAnchorKey(category));
+  const toRow = (p: { pair?: string; lift?: number }) => ({
+    pair: String(p.pair ?? ""),
+    lift: `${Number(p.lift ?? 0)}x`,
+    support: "—",
+  });
+  const out: Array<{ pair: string; lift: string; support: string }> = [];
+  const seen = new Set<string>();
+  const pushUnique = (list: Array<{ pair: string; lift: string; support: string }>) => {
+    for (const r of list) {
+      if (!r.pair || seen.has(r.pair)) continue;
+      seen.add(r.pair);
+      out.push(r);
+      if (out.length >= 8) return;
+    }
+  };
+  pushUnique(byHint.map(toRow).filter((r) => r.pair));
+  if (out.length < 8) pushUnique(keyedRows);
+  if (out.length < 8) pushUnique(rows.map(toRow).filter((r) => r.pair));
+  return out.slice(0, 8);
+}
+
+function anchorRateForDemandCategory(category: DemandCategory): { rate: string; label: string } {
+  const labelSuffix = category === "Canned Soup" ? "Soup basket rate" : `${category} basket rate (est.)`;
+  const rates: Record<DemandCategory, string> = {
+    "Canned Soup": "48%",
+    "Hot Beverages": "~36%",
+    "Pasta & Sauce": "~41%",
+    "Frozen Pizza": "~39%",
+    "Bag Snacks": "~44%",
+    "Cold Cereal": "~46%",
+    "Soft Drinks": "~43%",
+    "Ice Cream": "~37%",
+    "BBQ Meats": "~42%",
+  };
+  return { rate: rates[category], label: labelSuffix };
+}
+
 function formatRetailAnalyticsForPrompt(unified: Record<string, unknown> | null): string {
   const ra = unified?.retail_analytics as Record<string, unknown> | undefined;
   if (!ra) return "";
@@ -620,26 +798,48 @@ app.get("/api/basket-insights", async (req, res) => {
     const today = forecast[0]?.date ?? new Date().toISOString().slice(0, 10);
     const season = calendarSeasonFromIsoDate(today);
     const scenario = deriveBasketScenario(trigger);
-    const anchor = pickBasketAnchor(scenario, season);
+    const scenarioLabel = basketScenarioLabel(scenario);
+    const categoryRaw = typeof req.query.category === "string" ? req.query.category : "";
+    const demandCategory: DemandCategory | null = isDemandCategory(categoryRaw) ? categoryRaw : null;
+    const autoAnchor = pickBasketAnchor(scenario, season);
     const unified = readUnifiedSignal();
-    const companions = companionsForBasketAnchor(unified, anchor.key);
-    const pairs = crossPairsForBasketAnchor(unified, anchor.key);
+    const anchor = demandCategory
+      ? {
+          key: mapDemandCategoryToAnchorKey(demandCategory),
+          label: `${demandCategory} basket lens`,
+          rationale: `Companion and pair emphasis follows **${demandCategory}** for ${city.name}; trip context remains ${scenarioLabel}.`
+        }
+      : autoAnchor;
+    const companions = demandCategory
+      ? companionsForDemandCategory(unified, demandCategory)
+      : companionsForBasketAnchor(unified, anchor.key);
+    const pairs = demandCategory
+      ? crossPairsForDemandCategory(unified, demandCategory)
+      : crossPairsForBasketAnchor(unified, anchor.key);
     const meta = (unified?.meta as Record<string, unknown> | undefined) ?? {};
     const lastUpdated = typeof meta.last_updated === "string" ? meta.last_updated : undefined;
-    const anchorBasketRate =
-      anchor.key === "soup" ? "48%" : anchor.key === "bbq" ? "~42%" : anchor.key === "produce" ? "~38%" : "~35%";
+    const { rate: anchorBasketRate, label: anchorRateLabel } = demandCategory
+      ? anchorRateForDemandCategory(demandCategory)
+      : {
+          rate:
+            anchor.key === "soup" ? "48%" : anchor.key === "bbq" ? "~42%" : anchor.key === "produce" ? "~38%" : "~35%",
+          label: anchor.key === "soup" ? "Soup basket rate" : `${anchor.label} basket rate (est.)`
+        };
     const callout = [
-      `${getSeasonLabel(trigger.avgTemp)} (${basketScenarioLabel(scenario)}).`,
+      `${getSeasonLabel(trigger.avgTemp)} (${scenarioLabel}).`,
       anchor.rationale,
-      `Priority categories aligned with the dashboard: ${getCategoryFocus(trigger.avgTemp)}.`
+      demandCategory
+        ? `Dashboard category lens: **${demandCategory}** (priority ideas by temperature: ${getCategoryFocus(trigger.avgTemp)}).`
+        : `Priority categories aligned with the dashboard: ${getCategoryFocus(trigger.avgTemp)}.`
     ].join(" ");
 
     res.json({
       city: city.name,
       season,
       scenario,
-      scenarioLabel: basketScenarioLabel(scenario),
+      scenarioLabel,
       anchor,
+      demandCategory: demandCategory ?? undefined,
       thresholdUsed: threshold,
       trigger,
       forecast,
@@ -650,8 +850,7 @@ app.get("/api/basket-insights", async (req, res) => {
         households: "2,500",
         dataPeriod: "2 years",
         anchorBasketRate,
-        anchorRateLabel:
-          anchor.key === "soup" ? "Soup basket rate" : `${anchor.label} basket rate (est.)`
+        anchorRateLabel
       },
       callout,
       meta: { last_updated: lastUpdated }

@@ -3,6 +3,11 @@ import CategorySignals from "./CategorySignals";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
+import {
+  CATEGORY_DEMAND,
+  DEMAND_CATEGORY_LIST,
+  isDemandCategory,
+} from "../constants/demandCategories";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -54,20 +59,6 @@ const DEMAND_BANDS = [
   { label: "0–5°C",   min: 0,         max: 5,        uplift: 51  },
   { label: "< 0°C",   min: -Infinity, max: 0,        uplift: 67  },
 ];
-
-// Demand curves per category (uplift % by temp band, ordered > 20°C → < 0°C)
-const CATEGORY_DEMAND: Record<string, number[]> = {
-  "Canned Soup":      [-15,   0,  18,  34,  51,  67],
-  "Hot Beverages":    [-20,  -5,  15,  30,  48,  60],
-  "Pasta & Sauce":    [-10,   2,  14,  28,  40,  52],
-  "Frozen Pizza":     [ -8,   4,  16,  26,  35,  44],
-  "Bag Snacks":       [ 10,  12,   8,   4,  -2,  -6],
-  "Cold Cereal":      [ -5,   2,   8,  14,  20,  22],
-  "Soft Drinks":      [ 25,  18,   5,  -5, -12, -15],
-  "Ice Cream":        [ 45,  30,   5, -10, -20, -25],
-  "BBQ Meats":        [ 38,  22,   4,  -8, -18, -22],
-};
-const CATEGORY_KEYS = Object.keys(CATEGORY_DEMAND);
 
 function getActiveBand(avgTemp: number) {
   return DEMAND_BANDS.findIndex(
@@ -163,7 +154,15 @@ function Tooltip({ text }: { text: string }) {
 
 export default function Dashboard() {
   /* Global context — share city + temp with other tabs */
-  const { selectedCity, setSelectedCity, setAvgTemp, threshold, setThreshold } = useWeatherContext();
+  const {
+    selectedCity,
+    setSelectedCity,
+    setAvgTemp,
+    threshold,
+    setThreshold,
+    demandCategory,
+    setDemandCategory,
+  } = useWeatherContext();
 
   /* State */
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
@@ -174,9 +173,6 @@ export default function Dashboard() {
   const [pitchLoading, setPitchLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-
-  // Demand category selector
-  const [demandCategory, setDemandCategory] = useState("Canned Soup");
 
   // StatCan retail
   const [retailData, setRetailData] = useState<RetailDataPoint[]>([]);
@@ -312,8 +308,10 @@ export default function Dashboard() {
   }, [clientTrigger]);
 
   /* ── Selected category uplift values ────────────────────────────────── */
-  const categoryUplift = CATEGORY_DEMAND[demandCategory] ?? CATEGORY_DEMAND["Canned Soup"];
-  const maxUplift = Math.max(...Object.values(CATEGORY_DEMAND).flat().map(Math.abs));
+  const categoryUplift = CATEGORY_DEMAND[demandCategory];
+  const maxUplift = Math.max(
+    ...DEMAND_CATEGORY_LIST.flatMap((k) => Array.from(CATEGORY_DEMAND[k], (n) => Math.abs(n)))
+  );
 
   /* ── Generate pitch ───────────────────────────────────────────────────── */
   async function generatePitch() {
@@ -878,10 +876,15 @@ export default function Dashboard() {
               <select
                 className="cat-select"
                 value={demandCategory}
-                onChange={(e) => setDemandCategory(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isDemandCategory(v)) setDemandCategory(v);
+                }}
               >
-                {CATEGORY_KEYS.map((k) => (
-                  <option key={k} value={k}>{k}</option>
+                {DEMAND_CATEGORY_LIST.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
                 ))}
               </select>
             </div>

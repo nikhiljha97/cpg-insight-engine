@@ -2,6 +2,7 @@ import { apiUrl } from "../api";
 import { useCallback, useEffect, useState } from "react";
 import LastUpdated from "./LastUpdated";
 import { useWeatherContext } from "./WeatherContext";
+import { DEMAND_CATEGORY_LIST, isDemandCategory } from "../constants/demandCategories";
 
 type City = { name: string; lat: number; lon: number };
 
@@ -30,10 +31,12 @@ type BasketInsights = {
   };
   callout: string;
   meta: { last_updated?: string };
+  /** Present when API scored a specific dashboard demand category. */
+  demandCategory?: string;
 };
 
 export default function BasketAnalysis() {
-  const { selectedCity, setSelectedCity, threshold } = useWeatherContext();
+  const { selectedCity, setSelectedCity, threshold, demandCategory, setDemandCategory } = useWeatherContext();
   const [cities, setCities] = useState<City[]>([]);
   const [data, setData] = useState<BasketInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +64,8 @@ export default function BasketAnalysis() {
     try {
       const q = new URLSearchParams({
         city: selectedCity,
-        threshold: String(threshold)
+        threshold: String(threshold),
+        category: demandCategory,
       });
       const res = await fetch(apiUrl(`/api/basket-insights?${q.toString()}`));
       const body = (await res.json()) as BasketInsights & { error?: string };
@@ -74,14 +78,15 @@ export default function BasketAnalysis() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCity, threshold]);
+  }, [selectedCity, threshold, demandCategory]);
 
   useEffect(() => {
     void loadInsights();
   }, [loadInsights]);
 
-  const companionTitle =
-    data?.anchor.key === "soup"
+  const companionTitle = data?.demandCategory
+    ? `${data.demandCategory} basket companions`
+    : data?.anchor.key === "soup"
       ? "Soup companions"
       : `${data?.anchor.label ?? "Anchor"} companions`;
 
@@ -131,8 +136,26 @@ export default function BasketAnalysis() {
             ))}
           </select>
         </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="muted">Food category</span>
+          <select
+            value={demandCategory}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isDemandCategory(v)) setDemandCategory(v);
+            }}
+            style={{ minWidth: 180 }}
+          >
+            {DEMAND_CATEGORY_LIST.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
         <span className="mono muted" style={{ fontSize: 13 }}>
-          Trigger threshold {threshold}°C — change it on the Dashboard to re-score this page.
+          Trigger threshold {threshold}°C — change it on the Dashboard to re-score this page. Category matches Demand
+          Sensitivity on the Dashboard.
         </span>
         <button type="button" className="ghost-button" onClick={() => void loadInsights()} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
@@ -219,8 +242,10 @@ export default function BasketAnalysis() {
             <h3>Insight callout</h3>
             <p style={{ marginBottom: 0 }}>{data.callout}</p>
             <p className="muted" style={{ marginTop: 12, marginBottom: 0, fontSize: 13 }}>
-              Weather trigger (next 3 forecast days vs threshold) matches the Dashboard; basket tables come from{" "}
-              <code>output/unified_signal.json</code> with scenario-specific filtering.
+              Weather trigger (next 3 forecast days vs threshold) matches the Dashboard; category selection is shared
+              with Demand Sensitivity. Basket companions use live soup co-purchase rows for{" "}
+              <strong>Canned Soup</strong> when available, and curated estimates for other categories; pairs are
+              filtered from <code>output/unified_signal.json</code>.
             </p>
           </div>
         </>
