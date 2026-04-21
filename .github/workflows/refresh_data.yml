@@ -29,36 +29,57 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
 
     env:
       API_BASE: https://cpg-insight-engine-api.onrender.com
 
     steps:
       # ── Step 1: Wake the Render backend ──────────────────────────
-      # Render free tier spins down after 15 min of inactivity.
-      # We hit /api/cities (lightest endpoint) first and wait up to 60s
-      # for it to wake up before hitting the data endpoints.
+      # Render free tier spins down after ~15 min of inactivity. Cold
+      # starts often take 30–90s; curl exit 28 = timeout — use generous
+      # max-time and never let curl non-zero abort the step (bash -e).
       - name: Wake Render backend
         run: |
+          set +e
           echo "Waking backend at $API_BASE ..."
-          for i in 1 2 3 4 5 6; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$API_BASE/api/cities")
-            echo "  Attempt $i — HTTP $STATUS"
+          AWAKE=0
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+              --connect-timeout 25 --max-time 90 \
+              "$API_BASE/api/cities")
+            RC=$?
+            if [ "$RC" -eq 28 ]; then
+              echo "  Attempt $i — TIMEOUT (curl 28) — Render likely cold-starting; retrying..."
+            else
+              echo "  Attempt $i — HTTP $STATUS (curl exit $RC)"
+            fi
             if [ "$STATUS" = "200" ]; then
               echo "Backend is awake ✅"
+              AWAKE=1
               break
             fi
-            sleep 10
+            sleep 15
           done
+          set -e
+          if [ "$AWAKE" != "1" ]; then
+            echo "::warning::Backend did not return HTTP 200 after wake loop — later steps may still time out."
+          fi
 
       # ── Step 2: Bust StatCan cache (Ontario retail data) ─────────
       # The server caches this for 1 hour. Hitting it forces a fresh
       # TV-page scrape from StatCan to get the latest retail figures.
       - name: Refresh StatCan Ontario retail data
         run: |
+          set +e
           echo "Refreshing StatCan data..."
-          RESPONSE=$(curl -s --max-time 30 "$API_BASE/api/statcan/ontario-retail")
+          RESPONSE=$(curl -sS --connect-timeout 20 --max-time 120 "$API_BASE/api/statcan/ontario-retail")
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            echo "::warning::StatCan curl failed (exit $RC; 28 = timeout). Is the API awake?"
+            exit 1
+          fi
           LAST_PERIOD=$(echo "$RESPONSE" | python3 -c "
           import sys, json
           d = json.load(sys.stdin)
@@ -74,8 +95,15 @@ jobs:
       # ── Step 3: Refresh GTA traffic ──────────────────────────────
       - name: Refresh GTA traffic data
         run: |
+          set +e
           echo "Refreshing GTA traffic..."
-          RESPONSE=$(curl -s --max-time 20 "$API_BASE/api/traffic/gta")
+          RESPONSE=$(curl -sS --connect-timeout 20 --max-time 90 "$API_BASE/api/traffic/gta")
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            echo "::warning::Traffic curl failed (exit $RC)"
+            exit 1
+          fi
           SUMMARY=$(echo "$RESPONSE" | python3 -c "
           import sys, json
           d = json.load(sys.stdin)
@@ -88,7 +116,14 @@ jobs:
         run: |
           for CITY in "Mississauga" "Toronto" "Vancouver" "Calgary"; do
             ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$CITY'))")
-            RESPONSE=$(curl -s --max-time 20 "$API_BASE/api/weather?city=$ENCODED")
+            set +e
+            RESPONSE=$(curl -sS --connect-timeout 20 --max-time 90 "$API_BASE/api/weather?city=$ENCODED")
+            RC=$?
+            set -e
+            if [ "$RC" -ne 0 ]; then
+              echo "::warning::Weather curl for $CITY failed (exit $RC)"
+              continue
+            fi
             SUMMARY=$(echo "$RESPONSE" | python3 -c "
           import sys, json
           d = json.load(sys.stdin)
