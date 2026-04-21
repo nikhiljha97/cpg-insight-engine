@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { apiUrl } from "../api";
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const S = {
@@ -272,6 +273,170 @@ const TechItem: React.FC<TechItemProps> = ({ label, value, description }) => (
   </div>
 );
 
+type CatalogDataset = {
+  id: string;
+  name: string;
+  role: string;
+  kaggle_url: string;
+  notes?: string;
+};
+
+const linkStyle: React.CSSProperties = {
+  color: "#22d3ee",
+  fontWeight: 600,
+  textDecoration: "none",
+};
+
+/** Live list from /api/datasets + meta.datasets_used from unified_signal.json */
+const DataSourcesSection: React.FC = () => {
+  const [catalog, setCatalog] = useState<CatalogDataset[] | null>(null);
+  const [datasetsUsed, setDatasetsUsed] = useState<string[] | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [unifiedError, setUnifiedError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setCatalogError(null);
+      setUnifiedError(null);
+
+      const [catRes, uniRes] = await Promise.all([
+        fetch(apiUrl("/api/datasets")),
+        fetch(apiUrl("/api/signals/unified")),
+      ]);
+
+      if (!cancelled) {
+        if (catRes.ok) {
+          try {
+            const body = (await catRes.json()) as { datasets?: CatalogDataset[] };
+            setCatalog(Array.isArray(body.datasets) ? body.datasets : []);
+          } catch {
+            setCatalogError("Could not parse datasets catalog.");
+            setCatalog([]);
+          }
+        } else {
+          setCatalogError(catRes.status === 404 ? "Catalog file not on server." : `Catalog HTTP ${catRes.status}`);
+          setCatalog([]);
+        }
+
+        if (uniRes.ok) {
+          try {
+            const uni = (await uniRes.json()) as {
+              meta?: { datasets_used?: string[]; last_updated?: string };
+            };
+            const used = uni.meta?.datasets_used;
+            setDatasetsUsed(Array.isArray(used) ? used : []);
+            const lu = uni.meta?.last_updated;
+            setLastUpdated(typeof lu === "string" ? lu : null);
+          } catch {
+            setUnifiedError("Could not parse unified signal.");
+            setDatasetsUsed([]);
+          }
+        } else {
+          setUnifiedError(
+            uniRes.status === 404
+              ? "unified_signal.json not deployed on this host."
+              : `Unified signal HTTP ${uniRes.status}`
+          );
+          setDatasetsUsed([]);
+        }
+        setLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div style={S.section}>
+      <div style={S.eyebrow}>Provenance</div>
+      <h2 style={S.h2}>Data sources &amp; Kaggle catalog</h2>
+      <p style={{ ...S.body, marginBottom: 24 }}>
+        Raw Dunnhumby CSVs are not shipped in this repo (they stay on your machine after you
+        download from Kaggle). The dashboard reads the pre-built{" "}
+        <span style={S.accentCyan}>unified_signal.json</span> from the server. Below: what this
+        deployment&apos;s bundle contains, plus the curated Kaggle links used in the offline
+        pipeline.
+      </p>
+
+      {loading && (
+        <div style={S.card}>
+          <p style={S.bodyPrimary}>Loading catalog…</p>
+        </div>
+      )}
+
+      {!loading && (
+        <div style={{ display: "grid", gap: 20 }}>
+          <div style={S.card}>
+            <h3 style={S.h3}>In this deployed build</h3>
+            {unifiedError && (
+              <p style={{ ...S.body, color: "#fbbf24", marginBottom: 12 }}>{unifiedError}</p>
+            )}
+            {!unifiedError && datasetsUsed && datasetsUsed.length > 0 ? (
+              <>
+                {lastUpdated && (
+                  <p style={{ ...S.body, marginBottom: 16 }}>
+                    <span style={S.accentGreen}>Last compiled:</span>{" "}
+                    {new Date(lastUpdated).toLocaleString("en-CA", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                )}
+                <ul style={{ ...S.body, margin: 0, paddingLeft: 22, lineHeight: 1.85 }}>
+                  {datasetsUsed.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              !unifiedError && (
+                <p style={S.body}>
+                  No <code style={{ color: "#94a3b8" }}>meta.datasets_used</code> entries returned.
+                </p>
+              )
+            )}
+          </div>
+
+          <div style={S.card}>
+            <h3 style={S.h3}>Kaggle source catalog</h3>
+            {catalogError && (
+              <p style={{ ...S.body, color: "#fbbf24", marginBottom: 12 }}>{catalogError}</p>
+            )}
+            {catalog && catalog.length > 0 ? (
+              <div style={{ display: "grid", gap: 18 }}>
+                {catalog.map((d, idx) => (
+                  <div
+                    key={d.id}
+                    style={{
+                      borderBottom: idx < catalog.length - 1 ? "1px solid #334155" : "none",
+                      paddingBottom: idx < catalog.length - 1 ? 16 : 0,
+                    }}
+                  >
+                    <div style={{ ...S.techLabel, marginBottom: 6 }}>{d.role}</div>
+                    <div style={{ ...S.stepTitle, marginBottom: 6 }}>{d.name}</div>
+                    {d.notes && <p style={{ ...S.body, marginBottom: 10 }}>{d.notes}</p>}
+                    <a href={d.kaggle_url} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                      View on Kaggle →
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              !catalogError && <p style={S.body}>No catalog entries.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const About: React.FC = () => {
@@ -402,6 +567,10 @@ const About: React.FC = () => {
           />
         </div>
       </div>
+
+      <hr style={S.divider} />
+
+      <DataSourcesSection />
 
       <hr style={S.divider} />
 
