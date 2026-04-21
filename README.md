@@ -258,6 +258,13 @@ python 10_unified_signal.py
 python 11_merge_retail_analytics.py
 ```
 
+Or run the guarded runner (skips 02–10 when Dunnhumby CSVs are absent so
+committed `output/*.json` is not wiped; always runs **11** + **04**):
+
+```bash
+python scripts/run_pipeline.py
+```
+
 ### 6. Test the Weather Trigger
 
 ```bash
