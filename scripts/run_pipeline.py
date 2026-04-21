@@ -7,14 +7,14 @@ Usage (from repo root):
 
 Environment (optional):
   CPG_DATA_DIR            — folder with Complete Journey CSVs (see 02_load_data.py)
-  RETAIL_ANALYTICS_DIR    — folder with grocery_data_*.csv etc. (see 11_merge_retail_analytics.py)
+  RETAIL_ANALYTICS_DIR    — folder with grocery_data_*.csv etc. (see 12_export_retail_analytics_json.py)
   RETAIL_GROCERY_MAX_ROWS — cap per grocery file when merging (default 200000)
 
-If Dunnhumby core CSVs are missing, steps 02–09 are skipped (running them
-with an empty DB would damage committed output JSON). Step 10 is skipped
-too when unified_signal.json already exists, because 10 would clear
-product pair tables when product_pairs.csv is absent. Steps 11 and 04
-always run.
+If Dunnhumby core CSVs are missing, steps 02–09 are skipped. Step 10 is
+skipped when unified already exists (10 would clear pairs without CSVs).
+``12_export_retail_analytics_json.py`` writes ``output/retail_analytics.json``;
+``10_unified_signal.py`` merges it when present; ``11_merge_retail_analytics.py``
+patches unified only. ``04_weather_trigger.py`` always runs.
 """
 from __future__ import annotations
 
@@ -54,6 +54,7 @@ def main() -> None:
         run([py, "07_promo_attribution.py"])
         run([py, "08_price_elasticity.py"])
         run([py, "09_demographic_segmentation.py"])
+        run([py, "12_export_retail_analytics_json.py"])
         run([py, "10_unified_signal.py"])
     else:
         print(
@@ -62,14 +63,16 @@ def main() -> None:
             "    then re-run. (Running 10 without new basket outputs would empty pair lists.)\n",
             flush=True,
         )
+        run([py, "12_export_retail_analytics_json.py"])
         if not os.path.isfile(unified_path):
             print(
                 "    No unified_signal.json yet — running 10_unified_signal.py once.\n",
                 flush=True,
             )
             run([py, "10_unified_signal.py"])
+        else:
+            run([py, "11_merge_retail_analytics.py"])
 
-    run([py, "11_merge_retail_analytics.py"])
     run([py, "04_weather_trigger.py"])
     print("\n✓ Pipeline runner finished.\n")
 

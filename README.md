@@ -249,17 +249,19 @@ python 08_price_elasticity.py
 # Demographic segmentation — buyer profiles by income/age/kids
 python 09_demographic_segmentation.py
 
-# Merge all signals into a single JSON
+# Export retail_analytics CSV summaries to JSON (same pattern as promo_attribution)
+python 12_export_retail_analytics_json.py
+
+# Merge all signals into a single JSON (includes retail_analytics if output/retail_analytics.json exists)
 python 10_unified_signal.py
 
-# Optional: merge CSV summaries from ../retail_analytics (or RETAIL_ANALYTICS_DIR)
-# into unified_signal.json under "retail_analytics" (grocery monthly prices,
-# supermarket_sales, Toronto weatherstats, CMA CPI / unemployment, file inventory).
+# If unified_signal.json already exists and you only updated retail CSVs:
+# re-merge from output/retail_analytics.json without rebuilding Dunnhumby signals.
 python 11_merge_retail_analytics.py
 ```
 
 Or run the guarded runner (skips 02–10 when Dunnhumby CSVs are absent so
-committed `output/*.json` is not wiped; always runs **11** + **04**):
+committed `output/*.json` is not wiped; always runs **12** (retail JSON) then **10** or **11** + **04**):
 
 ```bash
 python scripts/run_pipeline.py

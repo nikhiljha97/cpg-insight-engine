@@ -10,6 +10,7 @@ Reads from output/:
   promo_attribution.json
   price_elasticity.json
   demographic_segmentation.json
+  retail_analytics.json   (optional — from 12_export_retail_analytics_json.py)
 
 Outputs:
   output/unified_signal.json
@@ -157,6 +158,16 @@ unified = {
         "spend_trajectory": demo.get("spend_trajectory", [])
     }
 }
+
+try:
+    from retail_analytics_signals import apply_retail_to_unified, load_retail_json
+
+    _retail = load_retail_json()
+    if _retail:
+        apply_retail_to_unified(unified, _retail)
+        print("  Merged output/retail_analytics.json into unified.")
+except Exception as _e:  # noqa: BLE001
+    print(f"  (retail_analytics.json not merged: {_e})")
 
 with open("output/unified_signal.json", "w") as f:
     json.dump(unified, f, indent=2, default=str)

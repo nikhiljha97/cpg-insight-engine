@@ -364,6 +364,7 @@ const DataSourcesSection: React.FC = () => {
               meta?: {
                 datasets_used?: string[];
                 last_updated?: string;
+                retail_analytics_exported_at?: string;
                 retail_analytics_merged_at?: string;
               };
               retail_analytics?: RetailAnalyticsBlock;
@@ -372,7 +373,7 @@ const DataSourcesSection: React.FC = () => {
             setDatasetsUsed(Array.isArray(used) ? used : []);
             const lu = uni.meta?.last_updated;
             setLastUpdated(typeof lu === "string" ? lu : null);
-            const rma = uni.meta?.retail_analytics_merged_at;
+            const rma = uni.meta?.retail_analytics_exported_at ?? uni.meta?.retail_analytics_merged_at;
             setRetailMergedAt(typeof rma === "string" ? rma : null);
             setRetailAnalytics(uni.retail_analytics ?? null);
           } catch {
@@ -463,7 +464,7 @@ const DataSourcesSection: React.FC = () => {
               )}
               {retailMergedAt && (
                 <p style={{ ...S.body, fontSize: 14, marginBottom: 16 }}>
-                  <span style={S.accentGreen}>Merged at:</span>{" "}
+                  <span style={S.accentGreen}>Exported / merged at:</span>{" "}
                   {new Date(retailMergedAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
                 </p>
               )}
