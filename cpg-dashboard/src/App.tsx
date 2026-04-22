@@ -1,4 +1,4 @@
-import { Link, Route, Router } from "wouter";
+import { Link, Redirect, Route, Router } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import Dashboard from "./pages/Dashboard";
 import BasketAnalysis from "./pages/BasketAnalysis";
@@ -13,7 +13,10 @@ import About from "./pages/About";
 import { WeatherProvider } from "./pages/WeatherContext";
 import InsightsAssistantDrawer from "./components/InsightsAssistantDrawer";
 
-const navItems = [
+/** Flip to `true` to restore the Brand Sentiment nav link and page (`BrandSentiment.tsx` is unchanged). */
+const ENABLE_BRAND_SENTIMENT_PAGE = false;
+
+const allNavItems = [
   { href: "/", label: "About" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/basket", label: "Basket Analysis" },
@@ -25,6 +28,14 @@ const navItems = [
   { href: "/sentiment", label: "Brand Sentiment" },
   { href: "/esg", label: "ESG Insights" },
 ];
+
+const navItems = ENABLE_BRAND_SENTIMENT_PAGE
+  ? allNavItems
+  : allNavItems.filter((item) => item.href !== "/sentiment");
+
+function SentimentRoute() {
+  return ENABLE_BRAND_SENTIMENT_PAGE ? <BrandSentiment /> : <Redirect to="/dashboard" />;
+}
 
 export default function App() {
   const [location] = useHashLocation();
@@ -65,7 +76,7 @@ export default function App() {
             <Route path="/elasticity" component={PriceElasticity} />
             <Route path="/demographics" component={DemographicSegments} />
             <Route path="/forecast" component={DemandForecast} />
-            <Route path="/sentiment" component={BrandSentiment} />
+            <Route path="/sentiment" component={SentimentRoute} />
             <Route path="/esg" component={EsgInsights} />
           </main>
           <InsightsAssistantDrawer />
