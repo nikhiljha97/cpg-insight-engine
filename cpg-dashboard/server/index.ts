@@ -829,6 +829,16 @@ Tone: confident, precise, no hype without numbers.
 `.trim();
 }
 
+/** Opening the API host in a browser hits `/` — return JSON so it’s obvious this is the backend, not the Vite site. */
+app.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "cpg-insight-engine-api",
+    message: "CPG dashboard REST API (Express). The marketing UI is a separate Render Static Site.",
+    try: ["/api/cities", "/api/weather?city=Mississauga"],
+  });
+});
+
 app.get("/api/cities", (_req, res) => {
   res.json(cities);
 });
