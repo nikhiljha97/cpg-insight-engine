@@ -41,12 +41,17 @@ export async function gatherInsightsForPdf(opts: {
     hotThreshold: String(hotThreshold),
   });
 
+  const demoPath =
+    scope === "all"
+      ? "/api/signals/demographics"
+      : `/api/signals/demographics?${new URLSearchParams({ demandCategory: scope }).toString()}`;
+
   const [unified, macroStrip, promo, priceElasticity, demographics, pitchHistory, traffic] = await Promise.all([
     jget("/api/signals/unified"),
     jget("/api/signals/macro-strip"),
     jget("/api/signals/promo"),
     jget("/api/signals/price-elasticity"),
-    jget("/api/signals/demographics"),
+    jget(demoPath),
     jget("/api/pitch-history"),
     jget("/api/traffic/gta"),
   ]);

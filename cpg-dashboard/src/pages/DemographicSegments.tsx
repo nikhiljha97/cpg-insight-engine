@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
+import type { DemandCategory } from "../constants/demandCategories";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
 
@@ -80,32 +81,77 @@ function PenetrationBar({ pct }: { pct: number }) {
 // ── Weather-context helpers ───────────────────────────────────
 
 function getDemoWeatherLabel(
+  demandCategory: DemandCategory,
   avgTemp: number,
   threshold: number,
   hotThreshold: number,
   coldActive: boolean,
   hotActive: boolean
 ): { label: string; color: string; tip: string } {
+  const cat = demandCategory;
   if (coldActive) {
-    if (avgTemp < 5) return { label: "Cold lane · freezing", color: "#38bdf8", tip: "Comfort buyers are most active. Family & mid-income segments respond best to soup + warmth bundles." };
-    return { label: "Cold lane · active", color: "#22d3ee", tip: "45–54 mid-income leads soup penetration — prioritize loyalty mailers for this cohort while cold + wet is confirmed." };
+    if (avgTemp < 5)
+      return {
+        label: "Cold lane · freezing",
+        color: "#38bdf8",
+        tip: `Comfort buyers are most active. Family & mid-income segments respond best to ${cat.toLowerCase()} + warmth bundles.`,
+      };
+    return {
+      label: "Cold lane · active",
+      color: "#22d3ee",
+      tip: `45–54 mid-income often over-indexes on ${cat.toLowerCase()} in cold windows — prioritize loyalty mailers for this cohort while cold + wet is confirmed.`,
+    };
   }
   if (hotActive) {
-    return { label: "Hot lane · active", color: "#fb923c", tip: "College-age and young families dominate outdoor + snacking. Rotate demos toward beverages, ice cream, and BBQ adjacencies." };
+    return {
+      label: "Hot lane · active",
+      color: "#fb923c",
+      tip: "College-age and young families dominate outdoor + snacking. Rotate demos toward beverages, ice cream, and BBQ adjacencies.",
+    };
   }
   if (avgTemp < threshold) {
-    return { label: "Cool — dry window", color: "#7dd3fc", tip: "Below cold cut-off but not wet enough for the cold lane — families still skew soup-curious; pair everyday value with light cross-sell." };
+    return {
+      label: "Cool — dry window",
+      color: "#7dd3fc",
+      tip: `Below cold cut-off but not wet enough for the cold lane — households still skew ${cat.toLowerCase()}-curious; pair everyday value with light cross-sell.`,
+    };
   }
   if (avgTemp > hotThreshold) {
-    return { label: "Warm — wet mix", color: "#fde047", tip: "Above hot cut-off with wet codes — elasticity is mixed; younger segments still skew beverages, but avoid over-discounting staples." };
+    return {
+      label: "Warm — wet mix",
+      color: "#fde047",
+      tip: "Above hot cut-off with wet codes — elasticity is mixed; younger segments still skew beverages, but avoid over-discounting staples.",
+    };
   }
-  if (avgTemp < 20) return { label: "Mild / Shoulder", color: "#86efac", tip: "Shoulder season. Shift promo focus toward fresh produce and everyday-value segments across all age bands." };
-  if (avgTemp < 25) return { label: "Warm", color: "#fde047", tip: "Warm weather. Younger segments (18–34) drive soft drinks and ice cream. High-income 35–54 lead BBQ & premium produce." };
-  return { label: "Hot — Summer Mode", color: "#fb923c", tip: "Summer activation without a confirmed hot lane — still lean into outdoor + snacking rotations as humidity drops." };
+  if (avgTemp < 20)
+    return {
+      label: "Mild / Shoulder",
+      color: "#86efac",
+      tip: "Shoulder season. Shift promo focus toward fresh produce and everyday-value segments across all age bands.",
+    };
+  if (avgTemp < 25)
+    return {
+      label: "Warm",
+      color: "#fde047",
+      tip: "Warm weather. Younger segments (18–34) drive soft drinks and ice cream. High-income 35–54 lead BBQ & premium produce.",
+    };
+  return {
+    label: "Hot — Summer Mode",
+    color: "#fb923c",
+    tip: "Summer activation without a confirmed hot lane — still lean into outdoor + snacking rotations as humidity drops.",
+  };
 }
 
 export default function DemographicSegments() {
-  const { selectedCity, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive } = useWeatherContext();
+  const {
+    selectedCity,
+    avgTemp,
+    threshold,
+    hotThreshold,
+    coldPromoActive,
+    hotPromoActive,
+    demandCategory,
+  } = useWeatherContext();
 
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<DemoData | null>(null);
@@ -117,27 +163,35 @@ export default function DemographicSegments() {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    void (async () => {
       try {
-        const res = await fetch(apiUrl("/api/signals/demographics"));
+        const qs = new URLSearchParams({ demandCategory });
+        const res = await fetch(`${apiUrl("/api/signals/demographics")}?${qs.toString()}`);
         const json = await res.json();
         if (!res.ok) throw new Error((json as { error?: string }).error ?? "Failed");
-        setData(json as DemoData);
-        setFetchedAt(Date.now());
+        if (!cancelled) {
+          setData(json as DemoData);
+          setFetchedAt(Date.now());
+        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Unknown error");
+        if (!cancelled) setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    void load();
-  }, []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [demandCategory]);
 
   if (loading) return <div style={{ padding: 40, color: "#94a3b8", fontSize: 16 }}>Loading demographic signals…</div>;
   if (error)   return <div style={{ padding: 40, color: "#f87171", fontSize: 16 }}>{error}</div>;
   if (!data)   return null;
 
-  const wx = getDemoWeatherLabel(avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive);
+  const wx = getDemoWeatherLabel(demandCategory, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive);
 
   const top = data.top_soup_buyer_segment;
   const allAges    = [...new Set(data.all_segments.map(s => s.age_group))].sort();
@@ -155,6 +209,8 @@ export default function DemographicSegments() {
 
   const soupSpend    = (p: string) => data.spend_trajectory.find(r => r.period === p && r.segment === "Soup Buyer")?.avg_spend    ?? 0;
   const nonSoupSpend = (p: string) => data.spend_trajectory.find(r => r.period === p && r.segment === "Non-Soup Buyer")?.avg_spend ?? 0;
+  const buyerCol = `${demandCategory} buyers`;
+  const otherCol = "Other households";
 
   const selectStyle: React.CSSProperties = { fontSize: 14, padding: "8px 14px", borderRadius: 8, border: "1px solid #475569", background: "#0f172a", color: "#e2e8f0", cursor: "pointer" };
 
@@ -164,6 +220,19 @@ export default function DemographicSegments() {
         <div>
           <p style={{...S.eyebrow, marginBottom:4}}>Signals</p>
           <h2 style={{...S.h2, marginBottom:0}}>Demographic Segments</h2>
+          <p style={{ margin: "10px 0 0", fontSize: 13, color: "#64748b", maxWidth: 720, lineHeight: 1.55 }}>
+            {demandCategory === "Canned Soup" ? (
+              <>
+                Household × income cells reflect the Dunnhumby <strong>Canned Soup</strong> basket anchor from the Python pipeline (unified signal).
+              </>
+            ) : (
+              <>
+                Basket anchor in the data layer is still <strong>Canned Soup</strong> (Complete Journey). Counts and penetration are{" "}
+                <strong>re-indexed server-side</strong> for <strong>{demandCategory}</strong> using dashboard demand weights so this page tracks
+                the same category selector as Dashboard / Basket.
+              </>
+            )}
+          </p>
         </div>
         <LastUpdated fetchedAt={fetchedAt} />
       </div>
@@ -208,14 +277,14 @@ export default function DemographicSegments() {
       {/* Hero card */}
       <div style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%)", borderRadius: 14, padding: "28px 32px", marginBottom: 20, border: "1px solid #2563eb" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#93c5fd", marginBottom: 10 }}>
-          Highest-Value Soup Buyer Segment
+          Highest-Value {demandCategory} Segment
         </div>
         <div style={{ fontSize: 30, fontWeight: 900, color: "#fff", marginBottom: 18 }}>
           {ageLabelMap[top.age_group] ?? top.age_group} &nbsp;·&nbsp; {incomeLabelMap[top.income_group] ?? top.income_group}
         </div>
         <div style={{ display: "flex", gap: 36, flexWrap: "wrap" }}>
           {[
-            ["Soup Penetration", `${top.soup_penetration_pct}%`, "#34d399"],
+            ["Category penetration", `${top.soup_penetration_pct}%`, "#34d399"],
             ["Kids in Household", top.has_kids === "None/Unknown" ? "No / Unknown" : top.has_kids, "#e2e8f0"],
             ["Homeowner Status", top.homeowner, "#e2e8f0"],
           ].map(([label, val, color]) => (
@@ -231,9 +300,18 @@ export default function DemographicSegments() {
       <div style={S.callout}>
         <div style={S.calloutTitle}>Targeting Insight</div>
         <div style={S.calloutBody}>
-          Multiple segments show <strong>100% soup penetration</strong> — every household buys soup.
-          The <strong>45–54 age group</strong> at mid-income levels is the largest high-frequency segment.
-          Loyalty coupons perform best in <strong>Frozen Grocery (30.6%)</strong> and <strong>Dairy Deli (30%)</strong> — ideal for soup + milk bundle promotions.
+          {demandCategory === "Canned Soup" ? (
+            <>
+              Penetration reflects the <strong>soup</strong> basket cohort. The <strong>45–54</strong> mid-income band is a frequent hero segment in
+              this slice. Coupon data still shows strongest redemption in <strong>Frozen Grocery (~31%)</strong> and <strong>Dairy Deli (~30%)</strong> — strong
+              anchors for pantry cross-merch.
+            </>
+          ) : (
+            <>
+              Viewing <strong>{demandCategory}</strong> with soup-indexed household cuts — use the narrative for <em>directional</em> targeting (same
+              departments, shifted category emphasis). Coupon redemption by department is unchanged from the unified signal.
+            </>
+          )}
         </div>
       </div>
 
@@ -241,7 +319,7 @@ export default function DemographicSegments() {
       <div style={S.card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ ...S.sectionTitle, marginBottom: 0 }}>
-            Soup Buyer Segments
+            {demandCategory} buyer segments
             <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b", marginLeft: 8 }}>— filter &amp; sort</span>
           </h3>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -267,7 +345,7 @@ export default function DemographicSegments() {
                   ["income_group",         "Income"],
                   ["has_kids",             "Has Kids"],
                   ["homeowner",            "Homeowner"],
-                  ["soup_buyers",          "Soup Buyers"],
+                  ["soup_buyers",          buyerCol],
                   ["soup_penetration_pct", "Penetration"],
                 ] as [SegSortKey, string][]).map(([k, label]) => (
                   <th key={k} style={S.th} onClick={() => setSegSort(prev => ({ key: k, dir: prev.key === k && prev.dir === "desc" ? "asc" : "desc" }))}>
@@ -307,7 +385,7 @@ export default function DemographicSegments() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {["Period", "Soup Buyers", "Non-Soup", "Δ Gap"].map(h => (
+                {["Period", buyerCol, otherCol, "Δ Gap"].map(h => (
                   <th key={h} style={{ ...S.th, cursor: "default" }}>{h}</th>
                 ))}
               </tr>
@@ -329,7 +407,9 @@ export default function DemographicSegments() {
             </tbody>
           </table>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 14, lineHeight: 1.6 }}>
-            Soup buyers are high-frequency, loyalty-oriented — non-soup buyers spend slightly more per visit but are less consistent.
+            {demandCategory === "Canned Soup"
+              ? "Soup buyers are high-frequency, loyalty-oriented — other households in this cohort often spend slightly more per trip but with less category consistency."
+              : `${demandCategory}–indexed households skew loyalty-oriented in this projection; other households show more volatile weekly spend (illustrative spread from the soup anchor).`}
           </div>
         </div>
 

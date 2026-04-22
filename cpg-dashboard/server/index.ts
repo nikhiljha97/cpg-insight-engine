@@ -21,6 +21,7 @@ import {
 } from "./demandCategoryStatcan.js";
 import { buildDemandForecastMvp } from "./demandForecast.js";
 import { fetchRedditGrocerySentimentSnapshot } from "./redditGrocerySentiment.js";
+import { parseDemandCategoryQuery, projectDemographics } from "./demographicsProjection.js";
 
 // ── Cache types ──────────────────────────────────────────────
 interface CacheEntry<T> { data: T; fetchedAt: number; }
@@ -1004,10 +1005,11 @@ app.get("/api/signals/price-elasticity", (_req, res) => {
   res.json(elasticity);
 });
 
-app.get("/api/signals/demographics", (_req, res) => {
+app.get("/api/signals/demographics", (req, res) => {
   const unified = readUnifiedSignal();
-  const demographics = (unified?.demographics as Record<string, unknown>) ?? {};
-  res.json(demographics);
+  const raw = (unified?.demographics as Record<string, unknown>) ?? {};
+  const cat = parseDemandCategoryQuery(req.query.demandCategory);
+  res.json(projectDemographics(raw, cat));
 });
 
 app.get("/api/pitch-history", (_req, res) => {
