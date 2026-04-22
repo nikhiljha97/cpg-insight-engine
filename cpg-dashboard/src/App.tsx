@@ -21,6 +21,9 @@ const navItems = [
   { href: "/promo", label: "Promo Attribution" },
   { href: "/elasticity", label: "Price Elasticity" },
   { href: "/demographics", label: "Demographics" },
+  { href: "/forecast", label: "Demand Forecast" },
+  { href: "/sentiment", label: "Brand Sentiment" },
+  { href: "/esg", label: "ESG Insights" },
 ];
 
 export default function App() {
