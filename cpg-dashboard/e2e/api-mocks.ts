@@ -1,10 +1,16 @@
 import type { Page } from "@playwright/test";
+import {
+  DEFAULT_COLD_THRESHOLD_C,
+  DEFAULT_DEMAND_CATEGORY,
+  DEFAULT_HOT_THRESHOLD_C,
+  DEFAULT_SELECTED_CITY,
+} from "../src/constants/appDefaults";
 import { isDemandCategory, type DemandCategory } from "../src/constants/demandCategories";
 import { DEMAND_CATEGORY_STATCAN_VECTOR, VECTOR_SERIES_LABEL } from "../server/demandCategoryStatcan";
 
 /** Deterministic weather so Dashboard leaves loading without calling Open-Meteo from the browser path. */
 function mockWeatherPayload() {
-  const city = { name: "Mississauga", lat: 43.589, lon: -79.6441 };
+  const city = { name: DEFAULT_SELECTED_CITY, lat: 43.589, lon: -79.6441 };
   const mk = (
     date: string,
     tempAvg: number,
@@ -37,8 +43,8 @@ function mockWeatherPayload() {
     hotTriggered: false,
     avgTemp: 13,
     wetDays: 2,
-    threshold: 12,
-    hotThreshold: 26,
+    threshold: DEFAULT_COLD_THRESHOLD_C,
+    hotThreshold: DEFAULT_HOT_THRESHOLD_C,
     windowDates: ["2030-06-02", "2030-06-03", "2030-06-04"],
   };
   return { city, forecast, trigger };
@@ -148,8 +154,8 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        city: "Mississauga",
-        category: "Canned Soup",
+        city: DEFAULT_SELECTED_CITY,
+        category: DEFAULT_DEMAND_CATEGORY,
         weeks: [
           {
             weekStart: "2030-07-07",
@@ -345,7 +351,7 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
       await route.continue();
       return;
     }
-    let category = "Canned Soup";
+    let category: string = DEFAULT_DEMAND_CATEGORY;
     try {
       const u = new URL(route.request().url());
       const c = u.searchParams.get("category");
@@ -357,7 +363,7 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        city: "Mississauga",
+        city: DEFAULT_SELECTED_CITY,
         season: "spring",
         scenario: "cold_dry",
         scenarioLabel: "Cold & dry — pantry & value stocking",
@@ -367,16 +373,16 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
           rationale: `UAT stub for ${category}.`
         },
         demandCategory: category,
-        thresholdUsed: 12,
-        hotThresholdUsed: 26,
+        thresholdUsed: DEFAULT_COLD_THRESHOLD_C,
+        hotThresholdUsed: DEFAULT_HOT_THRESHOLD_C,
         trigger: {
           triggered: false,
           coldTriggered: false,
           hotTriggered: false,
           avgTemp: 13,
           wetDays: 0,
-          threshold: 12,
-          hotThreshold: 26,
+          threshold: DEFAULT_COLD_THRESHOLD_C,
+          hotThreshold: DEFAULT_HOT_THRESHOLD_C,
           windowDates: ["2030-06-02", "2030-06-03", "2030-06-04"]
         },
         forecast: [],

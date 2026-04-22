@@ -22,6 +22,14 @@ import {
 import { buildDemandForecastMvp } from "./demandForecast.js";
 import { fetchRedditGrocerySentimentSnapshot } from "./redditGrocerySentiment.js";
 import { parseDemandCategoryQuery, projectDemographics } from "./demographicsProjection.js";
+import {
+  API_DEFAULT_PORT,
+  DATA_REFRESH_SECRET_MIN_LEN,
+  DEFAULT_COLD_THRESHOLD_C,
+  DEFAULT_HOT_THRESHOLD_C,
+  DEV_SERVER_PORT,
+  PUBLIC_DASHBOARD_ORIGIN,
+} from "../src/constants/appDefaults.js";
 
 // ── Cache types ──────────────────────────────────────────────
 interface CacheEntry<T> { data: T; fetchedAt: number; }
@@ -76,10 +84,10 @@ const weatherCacheByKey = new Map<string, CacheEntry<WeatherApiPayload>>();
 /** Short TTL so slider tweaks refetch quickly; cron bust clears entries for fresh Open-Meteo pulls. */
 const WEATHER_CACHE_TTL_MS = 3 * 60 * 1000;
 
-const PORT = Number(process.env.PORT) || 4000;
-const WEATHER_THRESHOLD = 12;
+const PORT = Number(process.env.PORT) || API_DEFAULT_PORT;
+const WEATHER_THRESHOLD = DEFAULT_COLD_THRESHOLD_C;
 /** °C — next 3-day avg above this with zero wet-code days ⇒ hot-dry promo window */
-const HOT_WEATHER_THRESHOLD_DEFAULT = 26;
+const HOT_WEATHER_THRESHOLD_DEFAULT = DEFAULT_HOT_THRESHOLD_C;
 const DB_PATH = "cpg.db";
 const UNIFIED_SIGNAL_PATH = path.join(process.cwd(), "..", "output", "unified_signal.json");
 const KAGGLE_SOURCES_PATH = path.join(process.cwd(), "server", "kaggle_sources.json");
@@ -166,9 +174,9 @@ const listPitches = db.prepare(`
 const app = express();
 app.use(express.json());
 const corsOrigins = [
-  "https://cpg-insight-engine.onrender.com",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
+  PUBLIC_DASHBOARD_ORIGIN,
+  `http://localhost:${DEV_SERVER_PORT}`,
+  `http://127.0.0.1:${DEV_SERVER_PORT}`,
   ...(process.env.CORS_ORIGINS?.split(",")
     .map((s) => s.trim())
     .filter(Boolean) ?? [])
@@ -309,7 +317,7 @@ function getCategoryFocus(avgTemp: number): string {
 }
 
 function getHeroPairings(avgTemp: number): string {
-  if (avgTemp < 12) {
+  if (avgTemp < WEATHER_THRESHOLD) {
     return [
       "- Soup + Fluid Milk: 48% co-purchase rate",
       "- Pasta + Sauce: 73% co-purchase rate"
@@ -326,7 +334,7 @@ function getHeroPairings(avgTemp: number): string {
 }
 
 function getSeasonLabel(avgTemp: number): string {
-  if (avgTemp < 12) return "cold-weather comfort food demand window";
+  if (avgTemp < WEATHER_THRESHOLD) return "cold-weather comfort food demand window";
   if (avgTemp >= 20) return "warm-weather summer activation opportunity";
   return "shoulder-season everyday value opportunity";
 }
@@ -1032,7 +1040,7 @@ app.post("/api/generate-pitch", async (req, res) => {
       return;
     }
 
-    const avgTemp = (weatherData as any)?.trigger?.avgTemp ?? threshold ?? 12;
+    const avgTemp = (weatherData as any)?.trigger?.avgTemp ?? threshold ?? WEATHER_THRESHOLD;
     const prompt  = buildPitchPrompt(city, weatherData, { avgTemp, threshold, trafficDisruption, ontarioRetailTrend });
 
     if (!process.env.GROQ_API_KEY) {
@@ -1483,11 +1491,11 @@ app.post("/api/internal/refresh-caches", async (req, res) => {
     });
     return;
   }
-  if (secret.length < 12) {
+  if (secret.length < DATA_REFRESH_SECRET_MIN_LEN) {
     res.status(503).json({
       ok: false,
       reason: "too_short",
-      error: `DATA_REFRESH_SECRET must be at least 12 characters (this value has ${secret.length}). Generate e.g. openssl rand -base64 32.`,
+      error: `DATA_REFRESH_SECRET must be at least ${DATA_REFRESH_SECRET_MIN_LEN} characters (this value has ${secret.length}). Generate e.g. openssl rand -base64 32.`,
     });
     return;
   }
@@ -1587,8 +1595,8 @@ const server = app.listen(PORT, "0.0.0.0", () => {
       ? normalizeRefreshToken(process.env.DATA_REFRESH_SECRET)
       : "";
   let drStatus: string;
-  if (dr.length >= 12) drStatus = "loaded (cron refresh enabled)";
-  else if (dr.length > 0) drStatus = `too short (${dr.length} chars) — need ≥12`;
+  if (dr.length >= DATA_REFRESH_SECRET_MIN_LEN) drStatus = "loaded (cron refresh enabled)";
+  else if (dr.length > 0) drStatus = `too short (${dr.length} chars) — need ≥${DATA_REFRESH_SECRET_MIN_LEN}`;
   else drStatus = "MISSING — set on API Web service + rebuild";
   console.log(`CPG dashboard API server listening on port ${PORT}`);
   console.log(`[config] DATA_REFRESH_SECRET: ${drStatus}`);

@@ -1,3 +1,4 @@
+import { DEFAULT_DEMAND_CATEGORY } from "../src/constants/appDefaults.js";
 import type { DemandCategory } from "../src/constants/demandCategories.js";
 import { CATEGORY_DEMAND, isDemandCategory } from "../src/constants/demandCategories.js";
 
@@ -23,9 +24,9 @@ function demandStrength(cat: DemandCategory): number {
 }
 
 export function parseDemandCategoryQuery(q: unknown): DemandCategory {
-  if (typeof q !== "string") return "Canned Soup";
+  if (typeof q !== "string") return DEFAULT_DEMAND_CATEGORY;
   const decoded = decodeURIComponent(q.trim());
-  return isDemandCategory(decoded) ? decoded : "Canned Soup";
+  return isDemandCategory(decoded) ? decoded : DEFAULT_DEMAND_CATEGORY;
 }
 
 /**
@@ -38,12 +39,12 @@ export function projectDemographics(
   cat: DemandCategory
 ): Record<string, unknown> {
   if (!raw || typeof raw !== "object") return {};
-  if (cat === "Canned Soup") {
+  if (cat === DEFAULT_DEMAND_CATEGORY) {
     return JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
   }
 
   const out = JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
-  const soupStr = demandStrength("Canned Soup");
+  const soupStr = demandStrength(DEFAULT_DEMAND_CATEGORY);
   const catStr = demandStrength(cat);
   const blend = Math.min(1.12, Math.max(0.38, catStr / soupStr));
 

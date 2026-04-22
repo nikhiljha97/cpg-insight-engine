@@ -4,12 +4,16 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
 
+# Defaults mirror `src/constants/appDefaults.ts` (API_DEFAULT_PORT, E2E_PREVIEW_PORT).
+E2E_API_PORT="${E2E_API_PORT:-4000}"
+E2E_UI_PORT="${E2E_UI_PORT:-4173}"
+
 npm run build
 
-(lsof -ti:4000 | xargs kill -9 2>/dev/null) || true
-(lsof -ti:4173 | xargs kill -9 2>/dev/null) || true
+(lsof -ti:"$E2E_API_PORT" | xargs kill -9 2>/dev/null) || true
+(lsof -ti:"$E2E_UI_PORT" | xargs kill -9 2>/dev/null) || true
 
-PORT=4000 npx tsx server/index.ts &
+PORT="$E2E_API_PORT" npx tsx server/index.ts &
 PID_API=$!
 PID_UI=""
 
@@ -21,20 +25,20 @@ trap cleanup EXIT INT TERM
 
 API_UP=0
 for _ in $(seq 1 90); do
-  if curl -sf "http://127.0.0.1:4000/api/cities" >/dev/null; then API_UP=1; break; fi
+  if curl -sf "http://127.0.0.1:${E2E_API_PORT}/api/cities" >/dev/null; then API_UP=1; break; fi
   sleep 1
 done
-[[ "$API_UP" == 1 ]] || { echo "e2e: API did not become ready on :4000"; exit 1; }
+[[ "$API_UP" == 1 ]] || { echo "e2e: API did not become ready on :${E2E_API_PORT}"; exit 1; }
 
-npx vite preview --host 127.0.0.1 --port 4173 --strictPort &
+npx vite preview --host 127.0.0.1 --port "$E2E_UI_PORT" --strictPort &
 PID_UI=$!
 
 UI_UP=0
 for _ in $(seq 1 90); do
-  if curl -sf "http://127.0.0.1:4173/" >/dev/null; then UI_UP=1; break; fi
+  if curl -sf "http://127.0.0.1:${E2E_UI_PORT}/" >/dev/null; then UI_UP=1; break; fi
   sleep 1
 done
-[[ "$UI_UP" == 1 ]] || { echo "e2e: Vite preview did not become ready on :4173"; exit 1; }
+[[ "$UI_UP" == 1 ]] || { echo "e2e: Vite preview did not become ready on :${E2E_UI_PORT}"; exit 1; }
 
 export CI="${CI:-}"
 echo "e2e: starting Playwright — $*"

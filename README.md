@@ -321,9 +321,9 @@ npm run dev
 npx vite
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser (not 5173 — the dev server port is set to **3000** in `cpg-dashboard/vite.config.ts`).
+Open [http://localhost:3000](http://localhost:3000) in your browser (not 5173 — the dev server port is defined as **`DEV_SERVER_PORT`** in `cpg-dashboard/src/constants/appDefaults.ts` and wired through `vite.config.ts`).
 
-For a **production-like** single port after `npm run build`, use `npx vite preview --host 127.0.0.1 --port 4173` with the API still on **4000** (Vite preview proxies `/api` to `127.0.0.1:4000` — same pattern as `cpg-dashboard/scripts/e2e.sh`).
+For a **production-like** single port after `npm run build`, use `npx vite preview --host 127.0.0.1 --port 4173` with the API still on **4000** (defaults **`E2E_PREVIEW_PORT`** / **`API_DEFAULT_PORT`** in `appDefaults.ts`; Vite preview proxies `/api` — same pattern as `cpg-dashboard/scripts/e2e.sh`, which also honors **`E2E_API_PORT`** / **`E2E_UI_PORT`** overrides).
 
 **Headless UAT:** from `cpg-dashboard`, run `npm run test:e2e` — it builds the client, starts the API and `vite preview`, then runs Playwright (upstream APIs are **stubbed** in `e2e/api-mocks.ts` for speed and determinism). **`CI=true`** in GitHub Actions enables one retry on flake.
 

@@ -1,10 +1,12 @@
+import { REPO_URL } from "../src/constants/appDefaults.js";
+
 /**
  * Reddit JSON “hot” listings. If REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET are set on the API process,
  * uses application-only OAuth (client_credentials) against oauth.reddit.com; otherwise public www.reddit.com.
  * Lexicon sentiment is a rough prototype — not NLP-grade.
  */
 const USER_AGENT =
-  "web:cpg-insight-engine:v1.5 (+https://github.com/nikhiljha97/cpg-insight-engine)";
+  process.env.REDDIT_USER_AGENT?.trim() || `web:cpg-insight-engine:v1.5 (+${REPO_URL})`;
 
 let redditBearerCache: { token: string; expMs: number } | null = null;
 

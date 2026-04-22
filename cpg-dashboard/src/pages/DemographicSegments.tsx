@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
+import { DEFAULT_DEMAND_CATEGORY } from "../constants/appDefaults";
 import type { DemandCategory } from "../constants/demandCategories";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
@@ -221,13 +222,13 @@ export default function DemographicSegments() {
           <p style={{...S.eyebrow, marginBottom:4}}>Signals</p>
           <h2 style={{...S.h2, marginBottom:0}}>Demographic Segments</h2>
           <p style={{ margin: "10px 0 0", fontSize: 13, color: "#64748b", maxWidth: 720, lineHeight: 1.55 }}>
-            {demandCategory === "Canned Soup" ? (
+            {demandCategory === DEFAULT_DEMAND_CATEGORY ? (
               <>
-                Household × income cells reflect the Dunnhumby <strong>Canned Soup</strong> basket anchor from the Python pipeline (unified signal).
+                Household × income cells reflect the Dunnhumby <strong>{DEFAULT_DEMAND_CATEGORY}</strong> basket anchor from the Python pipeline (unified signal).
               </>
             ) : (
               <>
-                Basket anchor in the data layer is still <strong>Canned Soup</strong> (Complete Journey). Counts and penetration are{" "}
+                Basket anchor in the data layer is still <strong>{DEFAULT_DEMAND_CATEGORY}</strong> (Complete Journey). Counts and penetration are{" "}
                 <strong>re-indexed server-side</strong> for <strong>{demandCategory}</strong> using dashboard demand weights so this page tracks
                 the same category selector as Dashboard / Basket.
               </>
@@ -300,7 +301,7 @@ export default function DemographicSegments() {
       <div style={S.callout}>
         <div style={S.calloutTitle}>Targeting Insight</div>
         <div style={S.calloutBody}>
-          {demandCategory === "Canned Soup" ? (
+          {demandCategory === DEFAULT_DEMAND_CATEGORY ? (
             <>
               Penetration reflects the <strong>soup</strong> basket cohort. The <strong>45–54</strong> mid-income band is a frequent hero segment in
               this slice. Coupon data still shows strongest redemption in <strong>Frozen Grocery (~31%)</strong> and <strong>Dairy Deli (~30%)</strong> — strong
@@ -407,7 +408,7 @@ export default function DemographicSegments() {
             </tbody>
           </table>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 14, lineHeight: 1.6 }}>
-            {demandCategory === "Canned Soup"
+            {demandCategory === DEFAULT_DEMAND_CATEGORY
               ? "Soup buyers are high-frequency, loyalty-oriented — other households in this cohort often spend slightly more per trip but with less category consistency."
               : `${demandCategory}–indexed households skew loyalty-oriented in this projection; other households show more volatile weekly spend (illustrative spread from the soup anchor).`}
           </div>

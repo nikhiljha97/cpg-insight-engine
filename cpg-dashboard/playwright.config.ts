@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { E2E_PREVIEW_PORT } from "./src/constants/appDefaults";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,7 +15,7 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   reporter: process.env.CI ? [["github"], ["html", { open: "never", outputFolder: "playwright-report" }]] : [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${E2E_PREVIEW_PORT}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     launchOptions: {

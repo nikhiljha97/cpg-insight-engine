@@ -1,31 +1,39 @@
 import { createContext, useCallback, useContext, useState, ReactNode } from "react";
+import {
+  DEFAULT_COLD_THRESHOLD_C,
+  DEFAULT_DEMAND_CATEGORY,
+  DEFAULT_HOT_THRESHOLD_C,
+  DEFAULT_SELECTED_CITY,
+  HOT_THRESHOLD_MAX_C,
+  HOT_THRESHOLD_MIN_C,
+} from "../constants/appDefaults";
 import { isDemandCategory, type DemandCategory } from "../constants/demandCategories";
 
 const DEMAND_CATEGORY_STORAGE_KEY = "cpg_demand_category";
 const HOT_THRESHOLD_STORAGE_KEY = "cpg_hot_threshold";
 
 function readStoredDemandCategory(): DemandCategory {
-  if (typeof window === "undefined") return "Canned Soup";
+  if (typeof window === "undefined") return DEFAULT_DEMAND_CATEGORY;
   try {
     const v = window.sessionStorage.getItem(DEMAND_CATEGORY_STORAGE_KEY);
     if (v && isDemandCategory(v)) return v;
   } catch {
     /* ignore */
   }
-  return "Canned Soup";
+  return DEFAULT_DEMAND_CATEGORY;
 }
 
 function readStoredHotThreshold(): number {
-  if (typeof window === "undefined") return 26;
+  if (typeof window === "undefined") return DEFAULT_HOT_THRESHOLD_C;
   try {
     const v = window.sessionStorage.getItem(HOT_THRESHOLD_STORAGE_KEY);
-    if (v == null) return 26;
+    if (v == null) return DEFAULT_HOT_THRESHOLD_C;
     const n = Number(v);
-    if (Number.isFinite(n) && n >= 18 && n <= 40) return n;
+    if (Number.isFinite(n) && n >= HOT_THRESHOLD_MIN_C && n <= HOT_THRESHOLD_MAX_C) return n;
   } catch {
     /* ignore */
   }
-  return 26;
+  return DEFAULT_HOT_THRESHOLD_C;
 }
 
 export interface WeatherContextValue {
@@ -50,13 +58,13 @@ export interface WeatherContextValue {
 }
 
 const WeatherContext = createContext<WeatherContextValue>({
-  selectedCity: "Mississauga",
+  selectedCity: DEFAULT_SELECTED_CITY,
   setSelectedCity: () => {},
-  avgTemp: 12,
+  avgTemp: DEFAULT_COLD_THRESHOLD_C,
   setAvgTemp: () => {},
-  threshold: 12,
+  threshold: DEFAULT_COLD_THRESHOLD_C,
   setThreshold: () => {},
-  hotThreshold: 26,
+  hotThreshold: DEFAULT_HOT_THRESHOLD_C,
   setHotThreshold: () => {},
   wetDays: 0,
   setWetDays: () => {},
@@ -64,14 +72,14 @@ const WeatherContext = createContext<WeatherContextValue>({
   setColdPromoActive: () => {},
   hotPromoActive: false,
   setHotPromoActive: () => {},
-  demandCategory: "Canned Soup",
+  demandCategory: DEFAULT_DEMAND_CATEGORY,
   setDemandCategory: () => {},
 });
 
 export function WeatherProvider({ children }: { children: ReactNode }) {
-  const [selectedCity, setSelectedCity] = useState("Mississauga");
-  const [avgTemp, setAvgTemp] = useState(12);
-  const [threshold, setThreshold] = useState(12);
+  const [selectedCity, setSelectedCity] = useState(DEFAULT_SELECTED_CITY);
+  const [avgTemp, setAvgTemp] = useState(DEFAULT_COLD_THRESHOLD_C);
+  const [threshold, setThreshold] = useState(DEFAULT_COLD_THRESHOLD_C);
   const [hotThreshold, setHotThresholdState] = useState(readStoredHotThreshold);
   const [wetDays, setWetDays] = useState(0);
   const [coldPromoActive, setColdPromoActive] = useState(false);
