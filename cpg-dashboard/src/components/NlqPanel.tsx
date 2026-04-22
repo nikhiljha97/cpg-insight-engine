@@ -2,6 +2,14 @@ import { apiUrl } from "../api";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useWeatherContext } from "../pages/WeatherContext";
 
+export type NlqPanelProps = {
+  variant?: "dashboard" | "drawer";
+  /** First assistant bubble (e.g. welcome + PDF instructions). */
+  introAssistantMessage?: string;
+  /** Called when the user sends a message (before the API request). */
+  onUserMessage?: (text: string) => void;
+};
+
 type NlqBarLineChart = {
   type: "bar" | "line";
   labels: string[];
@@ -171,9 +179,15 @@ const STARTER_CHIPS = [
   "What does the CPI reading suggest for pricing pressure alongside grocery list prices?",
 ];
 
-export default function NlqPanel() {
+export default function NlqPanel({
+  variant = "dashboard",
+  introAssistantMessage,
+  onUserMessage,
+}: NlqPanelProps) {
   const { selectedCity } = useWeatherContext();
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [turns, setTurns] = useState<ChatTurn[]>(() =>
+    introAssistantMessage ? [{ role: "assistant", content: introAssistantMessage }] : []
+  );
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -187,6 +201,7 @@ export default function NlqPanel() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
+      onUserMessage?.(trimmed);
       setErr("");
       const nextHistory: ChatTurn[] = [...turns, { role: "user", content: trimmed }];
       setTurns(nextHistory);
@@ -218,7 +233,7 @@ export default function NlqPanel() {
         setLoading(false);
       }
     },
-    [loading, selectedCity, turns]
+    [loading, onUserMessage, selectedCity, turns]
   );
 
   const send = useCallback(() => {
@@ -228,15 +243,34 @@ export default function NlqPanel() {
     void sendText(text);
   }, [draft, sendText]);
 
+  const isDrawer = variant === "drawer";
+
   return (
-    <div className="dash-card" style={{ marginBottom: 20 }}>
+    <div
+      className={isDrawer ? undefined : "dash-card"}
+      style={{
+        marginBottom: isDrawer ? 0 : 20,
+        paddingTop: isDrawer ? 4 : undefined,
+      }}
+    >
       <p className="section-title" style={{ margin: "0 0 6px" }}>
-        Query your data <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>(Groq · interactive)</span>
+        {isDrawer ? "Ask me anything" : "Query your data"}{" "}
+        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>(Groq · interactive)</span>
       </p>
       <p style={{ margin: "0 0 14px", fontSize: 13, color: "#64748b", lineHeight: 1.55 }}>
-        Multi-turn copilot grounded in <strong style={{ color: "#94a3b8" }}>unified_signal.json</strong>, the macro
-        strip, and the Ontario retail trail. The model may attach a chart when it helps. Requires{" "}
-        <code style={{ color: "#94a3b8" }}>GROQ_API_KEY</code> on the API server.
+        {isDrawer ? (
+          <>
+            Multi-turn copilot grounded in <strong style={{ color: "#94a3b8" }}>unified_signal.json</strong>, the
+            macro strip, and Ontario retail. Charts appear when the model returns them. Requires{" "}
+            <code style={{ color: "#94a3b8" }}>GROQ_API_KEY</code> on the API server.
+          </>
+        ) : (
+          <>
+            Multi-turn copilot grounded in <strong style={{ color: "#94a3b8" }}>unified_signal.json</strong>, the
+            macro strip, and the Ontario retail trail. The model may attach a chart when it helps. Requires{" "}
+            <code style={{ color: "#94a3b8" }}>GROQ_API_KEY</code> on the API server.
+          </>
+        )}
       </p>
 
       <div
@@ -245,7 +279,7 @@ export default function NlqPanel() {
           border: "1px solid #334155",
           borderRadius: 12,
           padding: 14,
-          maxHeight: 400,
+          maxHeight: isDrawer ? "min(46vh, 380px)" : 400,
           overflowY: "auto",
           marginBottom: 12,
           minHeight: 120,

@@ -1,6 +1,5 @@
 import { apiUrl } from "../api";
 import CategorySignals from "./CategorySignals";
-import NlqPanel from "../components/NlqPanel";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
@@ -1036,8 +1035,6 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-
-        <NlqPanel />
 
         {/* ── Error banner ─────────────────────────────────────────────── */}
         {error && (

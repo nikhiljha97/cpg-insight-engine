@@ -31,7 +31,7 @@ test("Dashboard: weather + demand category", async ({ page }) => {
   await expect(page.getByText(/\[4453\]/)).toBeVisible();
 });
 
-test("Dashboard: macro strip + NLQ beta panel", async ({ page }) => {
+test("Dashboard: macro strip + NLQ in Insights Assistant drawer", async ({ page }) => {
   await page.goto("/#/dashboard");
   await expect(page.getByRole("heading", { name: "CPG Analytics Dashboard" })).toBeVisible({
     timeout: 30_000,
@@ -39,7 +39,10 @@ test("Dashboard: macro strip + NLQ beta panel", async ({ page }) => {
   await expect(page.getByText("Retail analytics · sampled listings")).toBeVisible();
   await expect(page.getByText(/\$6\.42/)).toBeVisible();
   await expect(page.getByText("Greater Toronto · CPI (unified)")).toBeVisible();
-  await expect(page.getByText("Query your data")).toBeVisible();
+  await page.getByRole("button", { name: /Ask me anything/i }).click();
+  await expect(page.getByRole("dialog", { name: "Insights Assistant" })).toBeVisible();
+  await expect(page.getByText("Export PDF")).toBeVisible();
+  await expect(page.getByText("Ask me anything").first()).toBeVisible();
   await page.getByRole("button", { name: /soup companions/i }).click();
   await expect(page.getByText("UAT copilot")).toBeVisible({ timeout: 20_000 });
 });

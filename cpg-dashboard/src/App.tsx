@@ -8,6 +8,7 @@ import PriceElasticity from "./pages/PriceElasticity";
 import DemographicSegments from "./pages/DemographicSegments";
 import About from "./pages/About";
 import { WeatherProvider } from "./pages/WeatherContext";
+import InsightsAssistantDrawer from "./components/InsightsAssistantDrawer";
 
 const navItems = [
   { href: "/", label: "About" },
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/elasticity" component={PriceElasticity} />
             <Route path="/demographics" component={DemographicSegments} />
           </main>
+          <InsightsAssistantDrawer />
         </div>
       </Router>
     </WeatherProvider>

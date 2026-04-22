@@ -466,8 +466,8 @@ const About: React.FC = () => {
           />
           <Step
             number={9}
-            title="Use Query your data on the Dashboard for an interactive NLQ copilot"
-            description="Multi-turn chat over the unified signal (Groq). Ask follow-ups; the model stays grounded in the bundled JSON and can attach simple charts when useful. Requires GROQ_API_KEY on the server."
+            title="Open the Insights Assistant (right tab) for NLQ and PDF exports"
+            description="Use Ask me anything for multi-turn chat over the unified signal (Groq), or Export PDF to bundle Basket, Macro, Promo, Elasticity, Demographics, Pitches, Traffic, and StatCan retail for one category or all categories. Requires GROQ_API_KEY on the server for live chat."
             badgeColor="#22d3ee"
           />
         </div>
@@ -512,7 +512,7 @@ const About: React.FC = () => {
           <TechItem
             label="AI / LLM"
             value="Groq — llama-3.3-70b-versatile"
-            description="Pitch generation plus an interactive Dashboard copilot (NLQ) grounded in the unified signal — JSON-mode replies with optional charts"
+            description="Pitch generation plus the Insights Assistant NLQ panel (any page) grounded in the unified signal — JSON-mode replies with optional charts"
           />
           <TechItem
             label="Frontend"
