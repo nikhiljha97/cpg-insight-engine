@@ -2,6 +2,15 @@ import { expect, test } from "@playwright/test";
 import { installUpstreamMocks } from "./api-mocks";
 
 test.beforeEach(async ({ page }) => {
+  // CI should run with all sections expanded (Analyst view) so selectors exist even when
+  // Executive mode defaults sections to collapsed.
+  await page.addInitScript(() => {
+    try {
+      window.sessionStorage.setItem("cpg_ui_density", "analyst");
+    } catch {
+      /* ignore */
+    }
+  });
   await installUpstreamMocks(page);
 });
 
