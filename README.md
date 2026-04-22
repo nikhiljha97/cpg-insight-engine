@@ -4,11 +4,11 @@
 
 ### Weather-Aware Retail Analytics for Consumer Packaged Goods
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-Analytical_DB-FFF000?logo=duckdb&logoColor=black)](https://duckdb.org/)
-[![Express](https://img.shields.io/badge/Express.js-4.x-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![Express](https://img.shields.io/badge/Express.js-5.x-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![Vite](https://img.shields.io/badge/Vite-Build-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![SQLite](https://img.shields.io/badge/SQLite-History_Store-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?logo=render&logoColor=white)](https://render.com/)
@@ -85,7 +85,7 @@ CPG brand managers and grocery retailers struggle to know **when** and **how** t
 │   ┌──────────────────────┐    ┌──────────────────────┐             │
 │   │  Express.js API       │◄──│  Pre-computed JSONs   │             │
 │   │  (TypeScript, :4000)  │    └──────────────────────┘             │
-│   │  8 routes             │                                         │
+│   │  REST + NLQ + StatCan │                                         │
 │   └──────────┬───────────┘                                         │
 │              │                                                      │
 │              ▼                                                      │
@@ -114,14 +114,27 @@ CPG brand managers and grocery retailers struggle to know **when** and **how** t
 
 ## Dashboard Pages
 
-| # | Page | Description |
-|:-:|:-----|:------------|
-| 1 | **Weather Trigger** | City selector for 15+ Canadian cities, 7-day forecast visualization, KPI cards, one-click pitch generation |
-| 2 | **Basket Analysis** | SOUP companion products, top cross-department pairs, co-occurrence lift scores |
-| 3 | **Pitch History** | Saved executive pitches from SQLite with trend tracking |
-| 4 | **Promo Attribution** | Display vs. mailer vs. TPR lift by category and store tier |
-| 5 | **Price Elasticity** | Elasticity curves, discount depth analysis, store tier comparison |
-| 6 | **Buyer Profiles** | Demographic penetration, spend trajectory, coupon usage by segment |
+The SPA lives under `cpg-dashboard/` and uses **hash routes** (for example `/#/dashboard`, `/#/forecast`). A fixed **left nav** lists primary pages; an **Insights Assistant** tab on the right opens a drawer with multi-turn **NLQ** (Groq-backed when `GROQ_API_KEY` is set on the API) and **Export PDF** (category-scoped insight pack).
+
+| Route | Page | Description |
+|:------|:-----|:------------|
+| `/#/` | **About** | Product overview and how signals fit together |
+| `/#/dashboard` | **Dashboard** | Weather lane KPIs, demand category ↔ Ontario retail (StatCan vector per category), macro strip, GTA traffic |
+| `/#/basket` | **Basket Analysis** | Companion products and lift for the selected food category (synced with dashboard category) |
+| `/#/history` | **Pitch History** | Saved pitches from SQLite |
+| `/#/promo` | **Promo Attribution** | Promo lift by category and store tier |
+| `/#/elasticity` | **Price Elasticity** | Elasticity, discount depth, store tier summary |
+| `/#/demographics` | **Demographics** | Segment penetration, spend trajectory, coupon usage |
+| `/#/forecast` | **Demand Forecast** | Category demand index trail + short horizon |
+| `/#/esg` | **ESG Insights** | Curated ESG / reporting links and notes |
+| `/#/sentiment` | **Brand Sentiment** | *Temporarily disabled in the UI* (see below) |
+
+### Brand Sentiment (optional in UI)
+
+The Reddit-based **Brand Sentiment** page and nav item are **off by default** so shipping does not depend on that surface. The implementation (`cpg-dashboard/src/pages/BrandSentiment.tsx`) and API (`GET /api/sentiment/reddit-grocery`) remain in the repo.
+
+- **Turn it back on:** in `cpg-dashboard/src/App.tsx`, set `ENABLE_BRAND_SENTIMENT_PAGE` to `true` (rebuild / redeploy).
+- **While disabled:** there is no sidebar link; visiting `/#/sentiment` **redirects to** `/#/dashboard`.
 
 ---
 
@@ -146,10 +159,10 @@ All datasets sourced from [dunnhumby Source Files](https://www.dunnhumby.com/sou
 | **Data Pipeline** | Python (pandas, numpy, duckdb) | 10 scripts for loading, analysis, and signal generation |
 | **Weather** | Open-Meteo API | Free weather API (no key), 7-day forecast for Canadian cities |
 | **LLM Inference** | Groq (llama-3.3-70b-versatile) | Executive pitch generation combining all analytical signals |
-| **Backend** | Express.js + TypeScript | API server on port 4000, 8 routes serving pre-computed analytics |
-| **Frontend** | React + Vite | Dashboard with dark navy/teal analytics theme |
+| **Backend** | Express.js 5 + TypeScript | API on port 4000 — weather, StatCan Ontario retail (per demand category), basket, NLQ, demand forecast, Reddit sentiment snapshot, PDF bundle, etc. |
+| **Frontend** | React 19 + Vite | Hash-routed dashboard, **Insights Assistant** right rail (NLQ + consolidated PDF export) |
 | **Local Storage** | SQLite (better-sqlite3) | Pitch history persistence |
-| **CI/CD** | GitHub Actions | Daily cron Mon–Fri 8 AM ET: weather trigger + pitch generation |
+| **CI/CD** | GitHub Actions | Push/PR CI (Python syntax + dashboard build + Playwright), scheduled data pipeline, optional cache refresh cron |
 | **Hosting** | Render.com (free tier) | Backend as Web Service, frontend as Static Site |
 
 ---
@@ -186,8 +199,8 @@ python_scripts/
 
 ### Prerequisites
 
-- **Python 3.12+**
-- **Node.js 18+** and **npm**
+- **Python 3.11+** (matches CI); **3.12+** recommended locally
+- **Node.js 20+** and **npm** (dashboard uses Node **22** in CI)
 - **Groq API key** (free at [console.groq.com](https://console.groq.com))
 
 ### 1. Clone the Repository
@@ -268,16 +281,18 @@ python scripts/run_pipeline.py
 # or: make pipeline
 ```
 
-### Automation (GitHub Actions)
+### Scheduled data refresh (`pipeline.yml`)
 
-You do not need to run each script by hand on your laptop for routine refreshes.
+You do not need to run each Python step by hand for routine JSON refreshes.
 
-- **`.github/workflows/pipeline.yml`** runs **`python scripts/run_pipeline.py`** on a **daily schedule** (06:15 UTC) and on **manual “Run workflow”**. If any committed **`output/*.json`** files change, the workflow **commits and pushes** them (message includes **`[skip ci]`** so the lint/build workflow is not re-fired for that commit).
-- **Optional secrets** (same repo → *Settings → Secrets and variables → Actions*), if your CSVs live in private git mirrors:
+- **`.github/workflows/pipeline.yml`** runs **`python scripts/run_pipeline.py`** on a **daily schedule** (06:15 UTC) and on **manual “Run workflow”**. If any committed **`output/*.json`** files change, the workflow **commits and pushes** them (message includes **`[skip ci]`** so the push/PR CI job is not re-fired for that commit).
+- **Optional secrets** (repo → *Settings → Secrets and variables → Actions*), if CSVs live in private git mirrors:
   - **`CPG_DATA_CLONE_URL`** — `git clone` URL whose root contains `transaction_data.csv`, `product.csv`, etc. (sets **`CPG_DATA_DIR`** for the job).
   - **`RETAIL_ANALYTICS_CLONE_URL`** — `git clone` URL whose root contains `grocery_data_*.csv` and related files (sets **`RETAIL_ANALYTICS_DIR`**).
 - For private clones, embed a **fine-scoped PAT** in the HTTPS URL or use a deploy key; see GitHub’s docs on cloning with authentication in Actions.
 - If **`main`** is **branch-protected** against direct pushes, allow **GitHub Actions** to push (or use a bypass rule); otherwise the commit step will fail while the pipeline itself still ran.
+
+CI, daily pitch, and Render cache refresh are summarized under **[GitHub Actions workflows](#github-actions-workflows)** below.
 
 ### 6. Test the Weather Trigger
 
@@ -296,39 +311,42 @@ python 05_pitch_generator.py
 
 ### 8. Start the Dashboard
 
-```bash
-# Backend (Express.js API)
-cd cpg-dashboard
-npm install
-npm run dev          # Starts on port 4000
+From `cpg-dashboard/` after `npm install`:
 
-# Frontend (React + Vite) — in a separate terminal
-cd cpg-dashboard
-npm run dev:client   # Starts Vite dev server
+```bash
+# Terminal 1 — Express API (default http://127.0.0.1:4000)
+npm run dev
+
+# Terminal 2 — Vite dev server (see vite.config.ts: port 3000, /api proxied to :4000)
+npx vite
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser (not 5173 — the dev server port is set to **3000** in `cpg-dashboard/vite.config.ts`).
 
-**Headless UAT:** from `cpg-dashboard`, run `npm run test:e2e` — it builds the client, starts the API and `vite preview`, then runs Playwright against all main routes (weather/StatCan/traffic and basket insights are stubbed for speed and determinism). The same command runs in **GitHub Actions** on every push (see `.github/workflows/ci.yml`).
+For a **production-like** single port after `npm run build`, use `npx vite preview --host 127.0.0.1 --port 4173` with the API still on **4000** (Vite preview proxies `/api` to `127.0.0.1:4000` — same pattern as `cpg-dashboard/scripts/e2e.sh`).
+
+**Headless UAT:** from `cpg-dashboard`, run `npm run test:e2e` — it builds the client, starts the API and `vite preview`, then runs Playwright (upstream APIs are **stubbed** in `e2e/api-mocks.ts` for speed and determinism). **`CI=true`** in GitHub Actions enables one retry on flake.
 
 ---
 
-## Automation (GitHub Actions)
+## GitHub Actions workflows
 
-The workflow at `.github/workflows/daily_trigger.yml` runs automatically **Monday through Friday at 8:00 AM ET**.
+| Workflow | File | When | What it does |
+|:---------|:-----|:-----|:---------------|
+| **CI** | `.github/workflows/ci.yml` | Push / PR to `main` | **python-pipeline:** `py_compile` on key scripts · **dashboard-build:** `npm ci`, `npm run build`, Playwright `bash scripts/e2e.sh` |
+| **Analytics pipeline** | `.github/workflows/pipeline.yml` | Daily 06:15 UTC + manual | Runs `python scripts/run_pipeline.py`; may commit `output/*.json` with `[skip ci]` |
+| **Daily weather + pitch** | `.github/workflows/daily_trigger.yml` | Mon–Fri 13:00 UTC | Weather check; optional Groq pitch; artifact upload |
+| **API cache refresh** | `.github/workflows/refresh_data.yml` | Every 4h + manual | Wakes Render API and calls `POST /api/internal/refresh-caches` when `DATA_REFRESH_SECRET` is set |
 
-Each run:
-1. Checks the weather forecast for monitored Canadian cities
-2. Evaluates the cold/wet trigger condition
-3. If triggered, generates an LLM-powered executive pitch
-4. Saves the pitch as a downloadable artifact in the Actions tab
+Action pins use current majors (**`actions/checkout@v6`**, **`actions/setup-python@v6`**, **`actions/setup-node@v6`**) so JavaScript actions run on the **Node 24** runtime supported by GitHub (avoids Node 20 deprecation warnings).
 
-**Setup:**
-1. Push the repo to GitHub
-2. Add your API key as a repository secret: `Settings → Secrets → Actions → New secret → GROQ_API_KEY`
-3. The workflow activates automatically
+**Secrets (examples):**
 
-> Free tier: 2,000 min/month. Each run takes ~2 min → approximately 44 automated runs per month.
+- **`GROQ_API_KEY`** — for `daily_trigger.yml` pitch generation.
+- **`DATA_REFRESH_SECRET`** — same value as on the Render **Web** service for `refresh_data.yml`.
+- **`CPG_DATA_CLONE_URL`** / **`RETAIL_ANALYTICS_CLONE_URL`** — optional private CSV mirrors for `pipeline.yml` (documented above).
+
+> Free tier: 2,000 Actions minutes/month. The daily trigger uses ~2 min per run when the pitch path runs.
 
 ---
 
@@ -338,7 +356,10 @@ Each run:
 cpg-insight-engine/
 ├── .github/
 │   └── workflows/
-│       └── daily_trigger.yml       # GitHub Actions cron job
+│       ├── ci.yml                  # Python compile + dashboard build + Playwright
+│       ├── pipeline.yml          # Scheduled / manual data pipeline + output commit
+│       ├── daily_trigger.yml     # Weekday weather + optional pitch artifact
+│       └── refresh_data.yml      # Periodic Render cache warm (DATA_REFRESH_SECRET)
 ├── cpg-dashboard/                  # Full-stack dashboard application
 │   ├── src/                        # React frontend (Vite)
 │   └── server/                     # Express.js + TypeScript backend
