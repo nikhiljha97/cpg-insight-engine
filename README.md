@@ -124,7 +124,7 @@ The SPA lives under `cpg-dashboard/` and uses **hash routes** (for example `/#/d
 | `/#/history` | **Pitch History** | Saved pitches from SQLite |
 | `/#/promo` | **Promo Attribution** | Promo lift by category and store tier |
 | `/#/elasticity` | **Price Elasticity** | Elasticity, discount depth, store tier summary |
-| `/#/demographics` | **Demographics** | Segment penetration, spend trajectory, coupon usage |
+| `/#/demographics` | **Demographics** | Uses the dashboard **demand category** (same as Basket/Dashboard). Pipeline cells are **soup-anchored** from Dunnhumby; other categories get **server-side re-indexing** of penetration and counts plus relabelled copy (see on-page note). |
 | `/#/forecast` | **Demand Forecast** | Category demand index trail + short horizon |
 | `/#/esg` | **ESG Insights** | Curated ESG / reporting links and notes |
 | `/#/sentiment` | **Brand Sentiment** | *Temporarily disabled in the UI* (see below) |
