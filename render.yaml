@@ -30,4 +30,5 @@ services:
     runtime: static
     rootDir: cpg-dashboard
     buildCommand: npm ci && npm run build
-    staticPublishPath: ./cpg-dashboard/dist
+    # Must be relative to rootDir (see Render monorepo docs) — NOT ./cpg-dashboard/dist
+    staticPublishPath: dist
