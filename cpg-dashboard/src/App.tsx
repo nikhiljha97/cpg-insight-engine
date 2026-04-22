@@ -6,6 +6,9 @@ import PitchHistory from "./pages/PitchHistory";
 import PromoAttribution from "./pages/PromoAttribution";
 import PriceElasticity from "./pages/PriceElasticity";
 import DemographicSegments from "./pages/DemographicSegments";
+import DemandForecast from "./pages/DemandForecast";
+import BrandSentiment from "./pages/BrandSentiment";
+import EsgInsights from "./pages/EsgInsights";
 import About from "./pages/About";
 import { WeatherProvider } from "./pages/WeatherContext";
 import InsightsAssistantDrawer from "./components/InsightsAssistantDrawer";
@@ -32,8 +35,8 @@ export default function App() {
               <p className="eyebrow">CPG Retail Analytics</p>
               <h1>Insight Engine</h1>
               <p className="sidebar-copy">
-                Weather-aware retail insights with cold-wet and hot-dry lanes, basket analysis, and CPG pitch
-                generation for Canadian markets.
+                Weather-aware retail insights with cold-wet and hot-dry lanes, basket analysis, CPG pitch generation,
+                demand forecasting, Reddit grocery sentiment (prototype), and ESG resources for Canadian markets.
               </p>
             </div>
 
@@ -58,6 +61,9 @@ export default function App() {
             <Route path="/promo" component={PromoAttribution} />
             <Route path="/elasticity" component={PriceElasticity} />
             <Route path="/demographics" component={DemographicSegments} />
+            <Route path="/forecast" component={DemandForecast} />
+            <Route path="/sentiment" component={BrandSentiment} />
+            <Route path="/esg" component={EsgInsights} />
           </main>
           <InsightsAssistantDrawer />
         </div>

@@ -19,6 +19,8 @@ import {
   DEMAND_CATEGORY_STATCAN_VECTOR,
   VECTOR_SERIES_LABEL,
 } from "./demandCategoryStatcan.js";
+import { buildDemandForecastMvp } from "./demandForecast.js";
+import { fetchRedditGrocerySentimentSnapshot } from "./redditGrocerySentiment.js";
 
 // ── Cache types ──────────────────────────────────────────────
 interface CacheEntry<T> { data: T; fetchedAt: number; }
@@ -47,6 +49,9 @@ const retailCacheByKey = new Map<string, CacheEntry<RetailResponse>>();
 const RETAIL_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 let trafficCache: CacheEntry<TrafficResponse> | null = null;
 const TRAFFIC_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+type RedditSentimentPayload = Awaited<ReturnType<typeof fetchRedditGrocerySentimentSnapshot>>;
+let redditSentimentCache: CacheEntry<RedditSentimentPayload> | null = null;
+const REDDIT_SENTIMENT_TTL_MS = 45 * 60 * 1000;
 
 type City = {
   name: string;
@@ -1225,6 +1230,7 @@ function bustAllServerCaches(): void {
   mergedOntarioTotalPointsCache = null;
   trafficCache = null;
   weatherCacheByKey.clear();
+  redditSentimentCache = null;
 }
 
 async function fetchGtaTrafficPayload(): Promise<TrafficResponse> {
@@ -1367,6 +1373,82 @@ app.get("/api/traffic/gta", async (_req, res) => {
       error:            "511 unavailable",
     };
     return res.status(502).json(fallback);
+  }
+});
+
+// ── ROUTE: GET /api/forecast/demand (MVP index — StatCan + holidays + weather) ─
+
+app.get("/api/forecast/demand", async (req, res) => {
+  try {
+    const city = getCityByName(typeof req.query.city === "string" ? req.query.city : undefined);
+    let coldThreshold = WEATHER_THRESHOLD;
+    if (typeof req.query.threshold === "string") {
+      const t = Number(req.query.threshold);
+      if (Number.isFinite(t)) coldThreshold = t;
+    }
+    let hotThreshold = HOT_WEATHER_THRESHOLD_DEFAULT;
+    if (typeof req.query.hotThreshold === "string") {
+      const h = Number(req.query.hotThreshold);
+      if (Number.isFinite(h)) hotThreshold = h;
+    }
+    const categoryRaw = typeof req.query.demandCategory === "string" ? req.query.demandCategory : "";
+    const category: DemandCategory = isDemandCategory(categoryRaw) ? categoryRaw : "Canned Soup";
+
+    const { forecast, trigger } = await fetchWeather(city, coldThreshold, hotThreshold);
+    const forecastDays = forecast.map((d) => ({
+      date: d.date,
+      tempAvg: d.tempAvg,
+      precipitationMm: d.precipitationMm,
+      weatherCode: d.weatherCode,
+    }));
+    const wetCodes = new Set([51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99]);
+    const wetInActivationWindow = forecast.filter(
+      (d) => trigger.windowDates.includes(d.date) && wetCodes.has(d.weatherCode)
+    ).length;
+
+    const payload = await buildDemandForecastMvp({
+      category,
+      forecastDays,
+      coldTriggered: trigger.coldTriggered,
+      hotTriggered: trigger.hotTriggered,
+      wetDaysInActivationWindow: wetInActivationWindow,
+    });
+
+    res.json({
+      ...payload,
+      city: city.name,
+      weatherWindowDates: trigger.windowDates,
+      coldTriggered: trigger.coldTriggered,
+      hotTriggered: trigger.hotTriggered,
+    });
+  } catch (err) {
+    console.error("[forecast/demand]", err);
+    const message = err instanceof Error ? err.message : "Forecast failed";
+    res.status(502).json({ error: message });
+  }
+});
+
+// ── ROUTE: GET /api/sentiment/reddit-grocery (RSS + keyword + lexicon MVP) ─
+
+app.get("/api/sentiment/reddit-grocery", async (_req, res) => {
+  if (redditSentimentCache && Date.now() - redditSentimentCache.fetchedAt < REDDIT_SENTIMENT_TTL_MS) {
+    return res.json(redditSentimentCache.data);
+  }
+  try {
+    const data = await fetchRedditGrocerySentimentSnapshot();
+    redditSentimentCache = { data, fetchedAt: Date.now() };
+    return res.json(data);
+  } catch (err) {
+    console.error("[sentiment/reddit-grocery]", err);
+    res.status(502).json({
+      error: err instanceof Error ? err.message : "Reddit sentiment unavailable",
+      fetchedAt: new Date().toISOString(),
+      aggregateScore: 0,
+      matchedCount: 0,
+      posts: [],
+      subreddits: [],
+      methodology: "Fetch failed — Reddit may rate-limit or block automated requests.",
+    });
   }
 });
 

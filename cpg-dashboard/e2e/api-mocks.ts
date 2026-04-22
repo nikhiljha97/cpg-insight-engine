@@ -143,6 +143,61 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
     });
   });
 
+  await page.route("**/api/forecast/demand**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        city: "Mississauga",
+        category: "Canned Soup",
+        weeks: [
+          {
+            weekStart: "2030-07-07",
+            index: 102.5,
+            indexLow: 97,
+            indexHigh: 108,
+            drivers: ["UAT seasonality factor 1.020", "UAT holiday uplift +0.0%"],
+          },
+          {
+            weekStart: "2030-07-14",
+            index: 101.2,
+            indexLow: 96,
+            indexHigh: 106,
+            drivers: ["UAT driver B"],
+          },
+        ],
+        baselineWeeklyMillions: 2288,
+        methodology: "UAT demand forecast stub — not live StatCan math.",
+        weatherWindowDates: ["2030-06-02", "2030-06-03", "2030-06-04"],
+        coldTriggered: false,
+        hotTriggered: false,
+      }),
+    });
+  });
+
+  await page.route("**/api/sentiment/reddit-grocery**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        fetchedAt: "2030-01-01T00:00:00Z",
+        aggregateScore: 0.06,
+        matchedCount: 1,
+        posts: [
+          {
+            subreddit: "canada",
+            title: "UAT grocery prices thread for sentiment tab",
+            link: "https://www.reddit.com/r/canada/comments/uat123/",
+            sentiment: 0.06,
+            matched: true,
+          },
+        ],
+        subreddits: ["canada", "AskCanada"],
+        methodology: "UAT Reddit sentiment stub.",
+      }),
+    });
+  });
+
   await page.route("**/api/nlq/chat", async (route) => {
     if (route.request().method() !== "POST") {
       await route.continue();
