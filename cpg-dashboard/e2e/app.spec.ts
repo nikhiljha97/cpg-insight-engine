@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test("About loads", async ({ page }) => {
   await page.goto("/#/");
-  await expect(page.getByText("CPG Retail Analytics Engine")).toBeVisible();
+  await expect(page.getByText("CPG Retail Analytics Engine", { exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
 });
 
@@ -40,8 +40,9 @@ test("Dashboard: macro strip + NLQ in Insights Assistant drawer", async ({ page 
   await expect(page.getByText(/\$6\.42/)).toBeVisible();
   await expect(page.getByText("Greater Toronto · CPI (unified)")).toBeVisible();
   await page.getByRole("button", { name: /Ask me anything/i }).click();
-  await expect(page.getByRole("dialog", { name: "Insights Assistant" })).toBeVisible();
-  await expect(page.getByText("Export PDF")).toBeVisible();
+  const assistant = page.getByRole("dialog", { name: "Insights Assistant" });
+  await expect(assistant).toBeVisible();
+  await expect(assistant.getByText("Export PDF").first()).toBeVisible();
   await expect(page.getByText("Ask me anything").first()).toBeVisible();
   await page.getByRole("button", { name: /soup companions/i }).click();
   await expect(page.getByText("UAT copilot")).toBeVisible({ timeout: 20_000 });

@@ -175,6 +175,131 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
     });
   });
 
+  /* Signal pages read unified JSON on the server; CI often has no file — empty {} crashes React. Stub minimal shapes. */
+  await page.route("**/api/signals/promo**", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        best_tactic_by_category: [
+          {
+            category: "Canned Soup",
+            store_tier: "MAINSTREAM",
+            best_tactic: "Feature + Display",
+            lift: 1.12,
+            baseline_units: 4200,
+          },
+        ],
+        best_store_tier_for_activation: "MAINSTREAM",
+        store_tier_lift_scores: { MAINSTREAM: 0.14, VALUE: 0.09, UPSCALE: 0.06 },
+        carbo_top_promo: [
+          {
+            commodity: "Pasta",
+            feature_type: "Feature",
+            display_type: "End cap",
+            baskets: 120,
+            total_units: 480,
+            total_sales: 960,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/signals/price-elasticity**", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        most_elastic_categories: [
+          {
+            category: "Ice Cream",
+            store_tier: "VALUE",
+            elasticity_coef: -1.15,
+            interpretation: "Highly elastic in UAT.",
+            avg_price: 4.2,
+            avg_units: 900,
+          },
+        ],
+        discount_depth_impact: [
+          {
+            category: "Canned Soup",
+            discount_tier: "0-5% off",
+            avg_units: 12,
+            avg_visits: 2.1,
+            avg_households: 1.4,
+            observations: 50,
+          },
+        ],
+        store_tier_summary: [
+          {
+            store_tier: "MAINSTREAM",
+            store_count: 24,
+            avg_sqft: 42000,
+            avg_weekly_baskets: 5100,
+            avg_shelf_price: 3.1,
+            avg_discount_amount: 0.22,
+            avg_units_per_sku_week: 11,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/signals/demographics**", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        top_soup_buyer_segment: {
+          age_group: "Age Group4",
+          income_group: "Level5",
+          has_kids: "Y",
+          homeowner: "Y",
+          marital_status: "M",
+          soup_buyers: 120,
+          total_buyers: 600,
+          soup_penetration_pct: 20,
+        },
+        all_segments: [
+          {
+            age_group: "Age Group4",
+            income_group: "Level5",
+            has_kids: "Y",
+            homeowner: "Y",
+            marital_status: "M",
+            soup_buyers: 120,
+            total_buyers: 600,
+            soup_penetration_pct: 20,
+          },
+        ],
+        coupon_usage_by_dept: [
+          { DEPARTMENT: "Grocery", total_hh: 1000, coupon_users: 100, coupon_pct: 10 },
+        ],
+        spend_trajectory: [
+          { period: "early", weeks: "1-34", segment: "Soup Buyer", avg_spend: 52 },
+          { period: "early", weeks: "1-34", segment: "Non-Soup Buyer", avg_spend: 41 },
+          { period: "mid", weeks: "35-68", segment: "Soup Buyer", avg_spend: 55 },
+          { period: "mid", weeks: "35-68", segment: "Non-Soup Buyer", avg_spend: 43 },
+          { period: "late", weeks: "69-102", segment: "Soup Buyer", avg_spend: 53 },
+          { period: "late", weeks: "69-102", segment: "Non-Soup Buyer", avg_spend: 42 },
+        ],
+      }),
+    });
+  });
+
   await page.route("**/api/sentiment/reddit-grocery**", async (route) => {
     await route.fulfill({
       status: 200,
