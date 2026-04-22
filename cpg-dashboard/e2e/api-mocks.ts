@@ -184,6 +184,7 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
         aggregateScore: 0.06,
         matchedCount: 1,
         usedFallback: false,
+        oauthUsed: false,
         posts: [
           {
             subreddit: "canada",

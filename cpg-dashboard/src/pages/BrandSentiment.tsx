@@ -16,6 +16,7 @@ type SentimentPayload = {
   matchedCount: number;
   posts: RedditPost[];
   usedFallback: boolean;
+  oauthUsed?: boolean;
   subreddits: string[];
   methodology: string;
   error?: string;
@@ -102,6 +103,11 @@ export default function BrandSentiment() {
               {data.usedFallback ? (
                 <span style={{ color: "#94a3b8" }}> · showing hot-sample fallback</span>
               ) : null}
+              {data.oauthUsed ? (
+                <span style={{ color: "#86efac" }}> · Reddit OAuth (app token)</span>
+              ) : (
+                <span style={{ color: "#64748b" }}> · public JSON (add REDDIT_CLIENT_* on API for OAuth)</span>
+              )}
             </p>
             <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
               <div
@@ -180,17 +186,49 @@ export default function BrandSentiment() {
               — fine for dashboards with caching; Reddit may throttle aggressive IPs.
             </p>
             <p style={{ margin: "12px 0 0", fontSize: 14, color: "#94a3b8", lineHeight: 1.65 }}>
-              <strong style={{ color: "#e2e8f0" }}>Still free, more robust:</strong> create a “script” or “installed app” at{" "}
+              <strong style={{ color: "#e2e8f0" }}>Still free, more robust:</strong> create a <strong>web app</strong> at{" "}
               <a href="https://www.reddit.com/prefs/apps" target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
                 reddit.com/prefs/apps
               </a>{" "}
-              to get a <code style={{ color: "#cbd5e1" }}>client_id</code> / secret and call OAuth endpoints with higher
-              quotas and clearer compliance.
+              (see steps below), then set <code style={{ color: "#cbd5e1" }}>REDDIT_CLIENT_ID</code> and{" "}
+              <code style={{ color: "#cbd5e1" }}>REDDIT_CLIENT_SECRET</code> on your <strong>API</strong> service. This
+              dashboard will use Reddit’s application-only OAuth token automatically.
             </p>
             <p style={{ margin: "12px 0 0", fontSize: 14, color: "#94a3b8", lineHeight: 1.65 }}>
               <strong style={{ color: "#e2e8f0" }}>Alternatives:</strong> Google Alerts + manual curation, NewsAPI / GDELT
               for news tone, or vendor social listening (Brandwatch, Sprinklr) for enterprise scale.
             </p>
+            <ol
+              style={{
+                margin: "16px 0 0",
+                paddingLeft: 20,
+                fontSize: 14,
+                color: "#94a3b8",
+                lineHeight: 1.75,
+              }}
+            >
+              <li>Click <strong style={{ color: "#e2e8f0" }}>“are you a developer? create an app…”</strong></li>
+              <li>
+                Choose <strong style={{ color: "#e2e8f0" }}>web app</strong> (needs a client secret — best for a server
+                on Render).
+              </li>
+              <li>
+                <strong style={{ color: "#e2e8f0" }}>name:</strong> anything (e.g. <code style={{ color: "#cbd5e1" }}>cpg-insight-engine</code>
+                ), <strong style={{ color: "#e2e8f0" }}>redirect uri:</strong>{" "}
+                <code style={{ color: "#cbd5e1" }}>http://localhost:8080</code> (placeholder; not used for this
+                server-only token flow).
+              </li>
+              <li>
+                After create: copy the <strong style={{ color: "#e2e8f0" }}>client id</strong> under the app name and
+                the <strong style={{ color: "#e2e8f0" }}>secret</strong>.
+              </li>
+              <li>
+                Render → <strong style={{ color: "#e2e8f0" }}>cpg-insight-engine-api</strong> → Environment → add{" "}
+                <code style={{ color: "#cbd5e1" }}>REDDIT_CLIENT_ID</code> and{" "}
+                <code style={{ color: "#cbd5e1" }}>REDDIT_CLIENT_SECRET</code> → save → manual redeploy API → clear
+                sentiment cache or wait up to 45 minutes.
+              </li>
+            </ol>
           </div>
         </>
       )}

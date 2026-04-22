@@ -1,12 +1,41 @@
 /**
- * Public Reddit JSON listings (hot) — no OAuth. Reddit may rate-limit; use descriptive User-Agent per their policy.
+ * Reddit JSON “hot” listings. If REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET are set on the API process,
+ * uses application-only OAuth (client_credentials) against oauth.reddit.com; otherwise public www.reddit.com.
  * Lexicon sentiment is a rough prototype — not NLP-grade.
- *
- * "Free Reddit API": read-only JSON from www.reddit.com is unauthenticated but intended for light use.
- * For higher volume or private subs, register a free "script" app at reddit.com/prefs/apps and use OAuth.
  */
 const USER_AGENT =
-  "web:cpg-insight-engine:v1.4 (+https://github.com/nikhiljha97/cpg-insight-engine)";
+  "web:cpg-insight-engine:v1.5 (+https://github.com/nikhiljha97/cpg-insight-engine)";
+
+let redditBearerCache: { token: string; expMs: number } | null = null;
+
+/** Reddit confidential client — https://github.com/reddit-archive/reddit/wiki/OAuth2#application-only-oauth */
+async function getOptionalRedditBearer(): Promise<string | null> {
+  const id = process.env.REDDIT_CLIENT_ID?.trim();
+  const secret = process.env.REDDIT_CLIENT_SECRET?.trim();
+  if (!id || !secret) return null;
+  const now = Date.now();
+  if (redditBearerCache && now < redditBearerCache.expMs - 45_000) return redditBearerCache.token;
+
+  const res = await fetch("https://www.reddit.com/api/v1/access_token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": USER_AGENT,
+    },
+    body: "grant_type=client_credentials",
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) {
+    console.error("[reddit] OAuth token failed:", res.status, await res.text().catch(() => ""));
+    return null;
+  }
+  const j = (await res.json()) as { access_token?: string; expires_in?: number };
+  if (!j.access_token) return null;
+  const sec = typeof j.expires_in === "number" ? j.expires_in : 3600;
+  redditBearerCache = { token: j.access_token, expMs: now + sec * 1000 };
+  return redditBearerCache.token;
+}
 
 /** Canada-relevant communities (English). */
 export const REDDIT_GROCERY_SUBS = [
@@ -101,14 +130,20 @@ function parseHotJson(json: unknown, subreddit: string): RedditGroceryPost[] {
   return out;
 }
 
-async function fetchSubHotJson(sub: string): Promise<{ sub: string; posts: RedditGroceryPost[]; err?: string }> {
-  const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/hot.json?raw_json=1&limit=22`;
+async function fetchSubHotJson(
+  sub: string,
+  bearer: string | null
+): Promise<{ sub: string; posts: RedditGroceryPost[]; err?: string }> {
+  const path = `/r/${encodeURIComponent(sub)}/hot.json?raw_json=1&limit=22`;
+  const url = bearer ? `https://oauth.reddit.com${path}` : `https://www.reddit.com${path}`;
   try {
+    const headers: Record<string, string> = {
+      "User-Agent": USER_AGENT,
+      Accept: "application/json",
+    };
+    if (bearer) headers.Authorization = `Bearer ${bearer}`;
     const res = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "application/json",
-      },
+      headers,
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
@@ -127,13 +162,16 @@ export async function fetchRedditGrocerySentimentSnapshot(): Promise<{
   matchedCount: number;
   posts: RedditGroceryPost[];
   usedFallback: boolean;
+  oauthUsed: boolean;
   subreddits: string[];
   methodology: string;
 }> {
   const all: RedditGroceryPost[] = [];
   const errors: string[] = [];
 
-  const results = await Promise.all(REDDIT_GROCERY_SUBS.map((s) => fetchSubHotJson(s)));
+  const bearer = await getOptionalRedditBearer();
+  const oauthUsed = Boolean(bearer);
+  const results = await Promise.all(REDDIT_GROCERY_SUBS.map((s) => fetchSubHotJson(s, bearer)));
   for (const r of results) {
     if (r.err) errors.push(r.err);
     all.push(...r.posts);
@@ -162,13 +200,15 @@ export async function fetchRedditGrocerySentimentSnapshot(): Promise<{
     aggSource.length === 0 ? 0 : aggSource.reduce((s, p) => s + p.sentiment, 0) / aggSource.length;
 
   const methodology = [
-    `Sources: public https://www.reddit.com/r/{sub}/hot.json (no OAuth) for ${REDDIT_GROCERY_SUBS.join(", ")}.`,
+    oauthUsed
+      ? `Sources: oauth.reddit.com/r/{sub}/hot.json with application-only OAuth (client_credentials) for ${REDDIT_GROCERY_SUBS.join(", ")}.`
+      : `Sources: public www.reddit.com/r/{sub}/hot.json (no OAuth) for ${REDDIT_GROCERY_SUBS.join(", ")} — set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET on the API for official OAuth.`,
     "Titles are heuristically tagged for grocery / food-price / shopping context, then scored with a small positive/negative lexicon.",
     usedFallback
       ? "No grocery-tagged titles in this pull — showing unfiltered hot threads so the panel is not empty (scores are neutral)."
       : "",
     "Reddit is not representative of Canadian shoppers; English bias; corporate/marketing posts may skew hot.",
-    "Free tier: unauthenticated JSON is fine for low-volume dashboards; for production use a registered Reddit app (script OAuth) + caching and respect rate limits (see https://github.com/reddit-archive/reddit/wiki/API).",
+    "Respect Reddit API rules and cache responses (see https://github.com/reddit-archive/reddit/wiki/API).",
     errors.length ? `Fetch notes: ${errors.slice(0, 5).join("; ")}` : "",
   ]
     .filter(Boolean)
@@ -180,6 +220,7 @@ export async function fetchRedditGrocerySentimentSnapshot(): Promise<{
     matchedCount: groceryUnique.length,
     posts: displayPosts,
     usedFallback,
+    oauthUsed,
     subreddits: [...REDDIT_GROCERY_SUBS],
     methodology,
   };

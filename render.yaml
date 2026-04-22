@@ -24,6 +24,11 @@ services:
         sync: false
       - key: DATA_REFRESH_SECRET
         sync: false
+      # Optional: Reddit prefs/apps “web app” → Brand Sentiment uses OAuth client_credentials
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
 
   - type: web
     name: cpg-insight-engine

@@ -1447,6 +1447,7 @@ app.get("/api/sentiment/reddit-grocery", async (_req, res) => {
       matchedCount: 0,
       posts: [],
       usedFallback: false,
+      oauthUsed: false,
       subreddits: [],
       methodology: "Fetch failed — Reddit may rate-limit or block automated requests.",
     });
