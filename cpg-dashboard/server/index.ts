@@ -1363,18 +1363,29 @@ app.get("/api/traffic/gta", async (_req, res) => {
 // ── Internal: bust + warm caches (GitHub Actions cron, Bearer DATA_REFRESH_SECRET) ─
 
 app.post("/api/internal/refresh-caches", async (req, res) => {
-  const secret = process.env.DATA_REFRESH_SECRET;
-  if (!secret || secret.length < 12) {
+  const secretRaw = process.env.DATA_REFRESH_SECRET;
+  const secret = typeof secretRaw === "string" ? secretRaw.trim() : "";
+  if (!secret) {
     res.status(503).json({
       ok: false,
-      error: "DATA_REFRESH_SECRET is not set (or too short) on the server — configure it on Render for cron refresh.",
+      reason: "missing",
+      error:
+        "DATA_REFRESH_SECRET is not set on this API process. In Render Dashboard: open the **Web** service that runs the Express API (the one with startCommand `npm start`, e.g. cpg-insight-engine-api) → Environment → add variable DATA_REFRESH_SECRET → Save **and** trigger a rebuild. Setting it only on the static frontend service will not work.",
+    });
+    return;
+  }
+  if (secret.length < 12) {
+    res.status(503).json({
+      ok: false,
+      reason: "too_short",
+      error: `DATA_REFRESH_SECRET must be at least 12 characters (this value has ${secret.length}). Generate e.g. openssl rand -base64 32.`,
     });
     return;
   }
   const auth = req.headers.authorization;
   const bearer = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   const body = req.body as { secret?: unknown } | undefined;
-  const bodySecret = typeof body?.secret === "string" ? body.secret : "";
+  const bodySecret = typeof body?.secret === "string" ? body.secret.trim() : "";
   if (bearer !== secret && bodySecret !== secret) {
     res.status(401).json({ ok: false, error: "Unauthorized" });
     return;
@@ -1456,7 +1467,14 @@ app.post("/api/nlq/chat", async (req, res) => {
 });
 
 const server = app.listen(PORT, "0.0.0.0", () => {
+  const dr =
+    typeof process.env.DATA_REFRESH_SECRET === "string" ? process.env.DATA_REFRESH_SECRET.trim() : "";
+  let drStatus: string;
+  if (dr.length >= 12) drStatus = "loaded (cron refresh enabled)";
+  else if (dr.length > 0) drStatus = `too short (${dr.length} chars) — need ≥12`;
+  else drStatus = "MISSING — set on API Web service + rebuild";
   console.log(`CPG dashboard API server listening on port ${PORT}`);
+  console.log(`[config] DATA_REFRESH_SECRET: ${drStatus}`);
 });
 
 server.keepAliveTimeout = 0;
