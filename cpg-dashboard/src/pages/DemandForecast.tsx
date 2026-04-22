@@ -3,6 +3,9 @@ import { apiUrl } from "../api";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
 import { DEMAND_CATEGORY_LIST, isDemandCategory } from "../constants/demandCategories";
+import PageHeader from "../components/PageHeader";
+import SectionCard from "../components/SectionCard";
+import { useUiDensity } from "../components/UiDensity";
 
 type ForecastWeek = {
   weekStart: string;
@@ -33,6 +36,7 @@ const S: Record<string, CSSProperties> = {
 
 export default function DemandForecast() {
   const { selectedCity, threshold, hotThreshold, demandCategory, setDemandCategory } = useWeatherContext();
+  const { density } = useUiDensity();
   const [data, setData] = useState<ForecastPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,20 +69,34 @@ export default function DemandForecast() {
 
   return (
     <div style={S.page} className="page">
-      <p style={S.eyebrow}>Predictive demand</p>
-      <h2 style={S.h2}>Demand forecast index</h2>
-      <p style={S.body}>
-        Six-week <strong style={{ color: "#e2e8f0" }}>relative demand index</strong> (100 ≈ implied baseline weekly
-        sales from StatCan Ontario NAICS monthly series for your food category). Forward weeks blend smooth
-        seasonality, approximate Canadian holiday retail windows, and your current Open-Meteo activation flags
-        (cold+wet vs hot+dry). This is an <strong style={{ color: "#e2e8f0" }}>MVP heuristic</strong>, not a
-        production ML forecaster or inventory optimizer.
-      </p>
+      <PageHeader
+        eyebrow="Predictive demand"
+        title="Demand forecast index"
+        description="6-week relative demand index (100 ≈ implied baseline weekly sales from StatCan Ontario NAICS series)."
+        right={<LastUpdated />}
+      />
 
-      <div style={S.card}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8", display: "block", marginBottom: 8 }}>
-          Food category (StatCan NAICS mapping)
-        </label>
+      <SectionCard
+        title="Methodology"
+        subtitle="What this index means"
+        storageKey="sec:forecast:method"
+        defaultCollapsed={density === "executive"}
+      >
+        <p style={{ ...S.body, margin: 0 }}>
+          Six-week <strong style={{ color: "#e2e8f0" }}>relative demand index</strong> (100 ≈ implied baseline weekly
+          sales from StatCan Ontario NAICS monthly series for your food category). Forward weeks blend smooth
+          seasonality, approximate Canadian holiday retail windows, and your current Open-Meteo activation flags
+          (cold+wet vs hot+dry). This is an <strong style={{ color: "#e2e8f0" }}>MVP heuristic</strong>, not a
+          production ML forecaster or inventory optimizer.
+        </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Controls"
+        subtitle="Food category (StatCan mapping)"
+        storageKey="sec:forecast:controls"
+        defaultCollapsed={density === "executive"}
+      >
         <select
           className="cat-select"
           value={demandCategory}
@@ -86,7 +104,14 @@ export default function DemandForecast() {
             const v = e.target.value;
             if (isDemandCategory(v)) setDemandCategory(v);
           }}
-          style={{ maxWidth: 320, padding: "10px 12px", borderRadius: 8, border: "1px solid #334155", background: "#0f172a", color: "#e2e8f0" }}
+          style={{
+            maxWidth: 360,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: "1px solid #334155",
+            background: "#0f172a",
+            color: "#e2e8f0",
+          }}
         >
           {DEMAND_CATEGORY_LIST.map((c) => (
             <option key={c} value={c}>
@@ -94,7 +119,7 @@ export default function DemandForecast() {
             </option>
           ))}
         </select>
-      </div>
+      </SectionCard>
 
       {loading && <p style={{ color: "#64748b" }}>Loading forecast…</p>}
       {error && (
@@ -108,7 +133,12 @@ export default function DemandForecast() {
 
       {data && !loading && (
         <>
-          <div style={S.card}>
+          <SectionCard
+            title="Forecast snapshot"
+            subtitle="City + category + activation flags"
+            storageKey="sec:forecast:snap"
+            defaultCollapsed={false}
+          >
             <p style={{ margin: "0 0 8px", fontSize: 14, color: "#cbd5e1" }}>
               <strong>{data.city}</strong> · category <strong>{data.category}</strong> · baseline implied weekly{" "}
               <strong>{data.baselineWeeklyMillions} M$</strong> CAD (from monthly NAICS mix).
@@ -117,12 +147,15 @@ export default function DemandForecast() {
               Cold lane: {data.coldTriggered ? "on" : "off"} · Hot lane: {data.hotTriggered ? "on" : "off"} · Weather
               window dates: {data.weatherWindowDates?.join(", ") || "—"}
             </p>
-            <LastUpdated />
-            <p style={{ marginTop: 14, fontSize: 13, color: "#94a3b8", lineHeight: 1.65 }}>{data.methodology}</p>
-          </div>
+            <p style={{ margin: "0 0 0", fontSize: 13, color: "#94a3b8", lineHeight: 1.65 }}>{data.methodology}</p>
+          </SectionCard>
 
-          <div style={S.card}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 800, color: "#f1f5f9" }}>Weekly horizon</h3>
+          <SectionCard
+            title="Weekly horizon"
+            subtitle="6-week index range + drivers"
+            storageKey="sec:forecast:horizon"
+            defaultCollapsed={density === "executive"}
+          >
             <div style={{ display: "grid", gap: 14 }}>
               {data.weeks.map((w) => (
                 <div
@@ -161,7 +194,7 @@ export default function DemandForecast() {
                 </div>
               ))}
             </div>
-          </div>
+          </SectionCard>
         </>
       )}
     </div>

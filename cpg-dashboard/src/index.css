@@ -110,6 +110,118 @@ textarea {
   padding: 28px;
 }
 
+.page-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  margin: -10px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(15, 17, 23, 0.92), rgba(15, 17, 23, 0.82));
+  backdrop-filter: blur(10px);
+}
+
+.page-head__title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.page-head__desc {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  max-width: 74ch;
+}
+
+.page-head__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.density-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(22, 27, 39, 0.7);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.density-toggle__label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.density-toggle__value {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.section-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(42, 51, 71, 0.6);
+}
+
+.section-card__toggle {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+.section-card__title {
+  font-weight: 900;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+.section-card__subtitle {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.section-card__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-card__chev {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.section-card__body {
+  padding: 14px 16px 16px;
+}
+
+/* Density mode: Executive reduces whitespace. */
+html[data-density="executive"] .content {
+  padding: 20px;
+}
+html[data-density="executive"] .page {
+  gap: 14px;
+}
+html[data-density="executive"] .kpi-grid {
+  gap: 10px;
+}
+
 .page {
   display: grid;
   gap: 20px;

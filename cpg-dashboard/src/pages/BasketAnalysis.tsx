@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import LastUpdated from "./LastUpdated";
 import { useWeatherContext } from "./WeatherContext";
 import { DEMAND_CATEGORY_LIST, isDemandCategory } from "../constants/demandCategories";
+import PageHeader from "../components/PageHeader";
+import SectionCard from "../components/SectionCard";
+import { useUiDensity } from "../components/UiDensity";
 
 type City = { name: string; lat: number; lon: number };
 
@@ -42,6 +45,7 @@ type BasketInsights = {
 export default function BasketAnalysis() {
   const { selectedCity, setSelectedCity, threshold, hotThreshold, demandCategory, setDemandCategory } =
     useWeatherContext();
+  const { density } = useUiDensity();
   const [cities, setCities] = useState<City[]>([]);
   const [data, setData] = useState<BasketInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,78 +102,67 @@ export default function BasketAnalysis() {
 
   return (
     <section className="page">
-      <header
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: 12
-        }}
-      >
-        <div>
-          <p className="eyebrow">Basket Analysis</p>
-          <h2>{data ? `${data.anchor.label}` : "Basket insights"}</h2>
-          {data && (
-            <p className="muted" style={{ marginTop: 8, maxWidth: 640 }}>
-              <strong>{data.city}</strong> · calendar <strong>{data.season}</strong> ·{" "}
-              <strong>{data.scenarioLabel}</strong> · 3-day avg{" "}
-              <strong>{data.trigger.avgTemp}°C</strong> (cold below {data.thresholdUsed}°C, hot above{" "}
-              {data.hotThresholdUsed ?? data.trigger.hotThreshold ?? "—"}°C, wet-type days{" "}
-              {data.trigger.wetDays}
-              {data.trigger.coldTriggered ? " · cold lane on" : ""}
-              {data.trigger.hotTriggered ? " · hot lane on" : ""})
-            </p>
-          )}
-        </div>
-        <LastUpdated
-          key={refreshedAt ?? "pending"}
-          fetchedAt={refreshedAt ?? undefined}
-          label={data?.meta?.last_updated ? "Unified signal compiled" : "Analysis refreshed"}
-        />
-      </header>
+      <PageHeader
+        eyebrow="Basket Analysis"
+        title={data ? `${data.anchor.label}` : "Basket insights"}
+        description={
+          data
+            ? `${data.city} · ${data.season} · ${data.scenarioLabel} · 3-day avg ${data.trigger.avgTemp}°C (cold below ${data.thresholdUsed}°C, hot above ${data.hotThresholdUsed ?? data.trigger.hotThreshold ?? "—"}°C, wet days ${data.trigger.wetDays}${data.trigger.coldTriggered ? " · cold lane" : ""}${data.trigger.hotTriggered ? " · hot lane" : ""})`
+            : "Companion products, cross-dept pairs, and activation framing for the selected demand category."
+        }
+        right={
+          <LastUpdated
+            key={refreshedAt ?? "pending"}
+            fetchedAt={refreshedAt ?? undefined}
+            label={data?.meta?.last_updated ? "Unified signal compiled" : "Analysis refreshed"}
+          />
+        }
+      />
 
-      <div className="card" style={{ marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className="muted">City (syncs with Dashboard)</span>
-          <select
-            value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
-            style={{ minWidth: 160 }}
-          >
-            {(cities.length ? cities : [{ name: selectedCity, lat: 0, lon: 0 }]).map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className="muted">Food category</span>
-          <select
-            value={demandCategory}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (isDemandCategory(v)) setDemandCategory(v);
-            }}
-            style={{ minWidth: 180 }}
-          >
-            {DEMAND_CATEGORY_LIST.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="mono muted" style={{ fontSize: 13 }}>
-          Trigger threshold {threshold}°C — change it on the Dashboard to re-score this page. Category matches Demand
-          Sensitivity on the Dashboard.
-        </span>
-        <button type="button" className="ghost-button" onClick={() => void loadInsights()} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-      </div>
+      <SectionCard
+        title="Controls"
+        subtitle="City + demand category (syncs with Dashboard)"
+        storageKey="sec:basket:controls"
+        defaultCollapsed={density === "executive"}
+        right={
+          <button type="button" className="ghost-button" onClick={() => void loadInsights()} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        }
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="muted">City</span>
+            <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} style={{ minWidth: 160 }}>
+              {(cities.length ? cities : [{ name: selectedCity, lat: 0, lon: 0 }]).map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="muted">Food category</span>
+            <select
+              value={demandCategory}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (isDemandCategory(v)) setDemandCategory(v);
+              }}
+              style={{ minWidth: 180 }}
+            >
+              {DEMAND_CATEGORY_LIST.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="mono muted" style={{ fontSize: 13 }}>
+            Cold threshold {threshold}°C · Hot threshold {hotThreshold}°C (adjust on Dashboard)
+          </span>
+        </div>
+      </SectionCard>
 
       {error && (
         <div className="card callout" style={{ borderColor: "#b45309", marginBottom: 16 }}>
@@ -201,11 +194,12 @@ export default function BasketAnalysis() {
           </div>
 
           <div className="two-column">
-            <div className="card">
-              <div className="section-title-row">
-                <h3>{companionTitle}</h3>
-                <span className="mono">% of anchor baskets</span>
-              </div>
+            <SectionCard
+              title={companionTitle}
+              subtitle="% of anchor baskets"
+              storageKey="sec:basket:companions"
+              defaultCollapsed={density === "executive"}
+            >
               <div className="bar-list">
                 {data.companions.map(({ product, pct }) => (
                   <div key={product} className="bar-row">
@@ -219,13 +213,14 @@ export default function BasketAnalysis() {
                   </div>
                 ))}
               </div>
-            </div>
+            </SectionCard>
 
-            <div className="card">
-              <div className="section-title-row">
-                <h3>Top cross-department pairs</h3>
-                <span className="mono">Lift from unified signal</span>
-              </div>
+            <SectionCard
+              title="Top cross-department pairs"
+              subtitle="Lift from unified signal"
+              storageKey="sec:basket:pairs"
+              defaultCollapsed={density === "executive"}
+            >
               <table className="data-table">
                 <thead>
                   <tr>
@@ -244,19 +239,18 @@ export default function BasketAnalysis() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </SectionCard>
           </div>
 
-          <div className="card callout">
-            <h3>Insight callout</h3>
-            <p style={{ marginBottom: 0 }}>{data.callout}</p>
+          <SectionCard title="Insight callout" subtitle="One-slide narrative" storageKey="sec:basket:callout">
+            <p style={{ margin: 0, lineHeight: 1.7 }}>{data.callout}</p>
             <p className="muted" style={{ marginTop: 12, marginBottom: 0, fontSize: 13 }}>
               Weather trigger (next 3 forecast days vs threshold) matches the Dashboard; category selection is shared
               with Demand Sensitivity. Basket companions use live soup co-purchase rows for{" "}
               <strong>Canned Soup</strong> when available, and curated estimates for other categories; pairs are
               filtered from <code>output/unified_signal.json</code>.
             </p>
-          </div>
+          </SectionCard>
         </>
       ) : null}
     </section>

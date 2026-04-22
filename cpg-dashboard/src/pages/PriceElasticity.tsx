@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
+import PageHeader from "../components/PageHeader";
+import SectionCard from "../components/SectionCard";
+import { useUiDensity } from "../components/UiDensity";
 
 interface ElasticCategory {
   category: string;
@@ -107,6 +110,7 @@ function getPricingAdvice(
 
 export default function PriceElasticity() {
   const { selectedCity, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive } = useWeatherContext();
+  const { density } = useUiDensity();
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<ElasticityData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,38 +164,42 @@ export default function PriceElasticity() {
 
   return (
     <div style={S.page}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8, flexWrap:"wrap", gap:12 }}>
-        <div>
-          <p style={{...S.eyebrow, marginBottom:4}}>Signals</p>
-          <h2 style={{...S.h2, marginBottom:0}}>Price Elasticity</h2>
-        </div>
-        <LastUpdated fetchedAt={fetchedAt} />
-      </div>
+      <PageHeader
+        eyebrow="Signals"
+        title="Price Elasticity"
+        description="Which categories respond most to price, and how discount depth / store tier changes the lift."
+        right={<LastUpdated fetchedAt={fetchedAt} />}
+      />
 
-      {/* ── Live context banner ── */}
-      <div style={{
-        background: "#0f172a",
-        border: `1px solid ${tempColor}44`,
-        borderLeft: `4px solid ${tempColor}`,
-        borderRadius: 10,
-        padding: "14px 20px",
-        marginBottom: 20,
-      }}>
-        <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Live Context — {selectedCity} · {avgTemp.toFixed(1)}°C avg · Cold below {threshold}°C · Hot above {hotThreshold}°C</div>
-        <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.6 }}>
-          <strong style={{ color: "#f1f5f9" }}>Pricing strategy for current conditions: </strong>
-          {getPricingAdvice(avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive)}
+      <SectionCard
+        title="Live pricing guidance"
+        subtitle={`${selectedCity} · ${avgTemp.toFixed(1)}°C avg`}
+        storageKey="sec:elasticity:context"
+        defaultCollapsed={density === "executive"}
+      >
+        <div style={{
+          background: "#0f172a",
+          border: `1px solid ${tempColor}44`,
+          borderLeft: `4px solid ${tempColor}`,
+          borderRadius: 10,
+          padding: "14px 20px",
+        }}>
+          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+            Dashboard thresholds — cold below {threshold}°C · hot above {hotThreshold}°C
+          </div>
+          <div style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.6 }}>
+            <strong style={{ color: "#f1f5f9" }}>Pricing strategy:</strong>{" "}
+            {getPricingAdvice(avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive)}
+          </div>
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Insight callout */}
-      <div style={S.callout}>
-        <div style={S.calloutTitle}>Elasticity Insight</div>
+      <SectionCard title="Elasticity insight" subtitle="How to read this" storageKey="sec:elasticity:insight" defaultCollapsed={false}>
         <div style={S.calloutBody}>
           Categories with elasticity coefficient &gt; 1.0 (in absolute terms) are <strong>highly price-sensitive</strong> — small discounts drive large volume swings.
-          Categories below 1.0 are <strong>inelastic</strong> — weather and convenience matter more than price. Use the table below to calibrate your promotional depth by store tier.
+          Categories below 1.0 are <strong>inelastic</strong> — weather and convenience matter more than price. Use the tables below to calibrate promotional depth by store tier.
         </div>
-      </div>
+      </SectionCard>
 
       {/* Elasticity table */}
       <div style={S.card}>

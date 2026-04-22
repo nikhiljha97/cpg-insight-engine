@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { apiUrl } from "../api";
 import { useWeatherContext } from "./WeatherContext";
 import LastUpdated from "./LastUpdated";
+import PageHeader from "../components/PageHeader";
+import SectionCard from "../components/SectionCard";
+import { useUiDensity } from "../components/UiDensity";
 
 interface TacticRow {
   category: string;
@@ -90,6 +93,7 @@ function SortIcon({ dir }: { dir: SortDir | null }) {
 
 export default function PromoAttribution() {
   const { selectedCity, avgTemp, threshold, hotThreshold, coldPromoActive, hotPromoActive } = useWeatherContext();
+  const { density } = useUiDensity();
   const [fetchedAt, setFetchedAt] = useState<number|null>(null);
   const [data, setData] = useState<PromoData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,61 +148,67 @@ export default function PromoAttribution() {
 
   return (
     <div style={S.page}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8, flexWrap:"wrap", gap:12 }}>
-        <div>
-          <p style={{...S.eyebrow, marginBottom:4}}>Signals</p>
-          <h2 style={{...S.h2, marginBottom:0}}>Promo Attribution</h2>
-        </div>
-        <LastUpdated fetchedAt={fetchedAt} />
-      </div>
+      <PageHeader
+        eyebrow="Signals"
+        title="Promo Attribution"
+        description="Best promo tactic by category and store-tier lift under the current weather lane."
+        right={<LastUpdated fetchedAt={fetchedAt} />}
+      />
 
       {/* ── Live context banner from Dashboard ── */}
-      <div style={{
-        background: "#0f172a",
-        border: `1px solid ${weatherCtx.color}44`,
-        borderLeft: `4px solid ${weatherCtx.color}`,
-        borderRadius: 10,
-        padding: "14px 20px",
-        marginBottom: 20,
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        flexWrap: "wrap",
-      }}>
-        <div>
-          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>Live Context from Dashboard</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>
-            {selectedCity} · {avgTemp.toFixed(1)}°C avg · Cold below {threshold}°C · Hot above {hotThreshold}°C
+      <SectionCard
+        title="Live context"
+        subtitle={`${selectedCity} · ${avgTemp.toFixed(1)}°C avg`}
+        storageKey="sec:promo:context"
+        defaultCollapsed={density === "executive"}
+      >
+        <div style={{
+          background: "#0f172a",
+          border: `1px solid ${weatherCtx.color}44`,
+          borderLeft: `4px solid ${weatherCtx.color}`,
+          borderRadius: 10,
+          padding: "14px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          flexWrap: "wrap",
+        }}>
+          <div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>Dashboard thresholds</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f5f9" }}>
+              Cold below {threshold}°C · Hot above {hotThreshold}°C
+            </div>
+          </div>
+          <div style={{
+            background: `${weatherCtx.color}18`,
+            border: `1px solid ${weatherCtx.color}44`,
+            borderRadius: 8,
+            padding: "8px 14px",
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: weatherCtx.color }}>{weatherCtx.label}</span>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{weatherCtx.tip}</div>
           </div>
         </div>
-        <div style={{
-          background: `${weatherCtx.color}18`,
-          border: `1px solid ${weatherCtx.color}44`,
-          borderRadius: 8,
-          padding: "8px 14px",
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: weatherCtx.color }}>{weatherCtx.label}</span>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{weatherCtx.tip}</div>
-        </div>
-      </div>
+      </SectionCard>
 
-      {/* KPI strip */}
-      <div style={S.kpiGrid}>
-        {Object.entries(tierScores).map(([tier, score]) => {
-          const c = tierColors[tier]?.bg ?? "#475569";
-          return (
-            <div key={tier} style={S.kpiCard(c)}>
-              <div style={S.kpiValue(c)}>{score.toFixed(2)}×</div>
-              <div style={S.kpiLabel}>{tier} lift</div>
-              {tier === topTier && (
-                <div style={{ marginTop: 10 }}>
-                  <span style={S.badge("#1d4ed8", "#fff")}>★ Best Tier</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <SectionCard title="Store-tier lift" subtitle="Executive KPI strip" storageKey="sec:promo:kpis" defaultCollapsed={false}>
+        <div style={S.kpiGrid}>
+          {Object.entries(tierScores).map(([tier, score]) => {
+            const c = tierColors[tier]?.bg ?? "#475569";
+            return (
+              <div key={tier} style={S.kpiCard(c)}>
+                <div style={S.kpiValue(c)}>{score.toFixed(2)}×</div>
+                <div style={S.kpiLabel}>{tier} lift</div>
+                {tier === topTier && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={S.badge("#1d4ed8", "#fff")}>★ Best Tier</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </SectionCard>
 
       {/* Insight callout */}
       <div style={S.calloutBlue}>
