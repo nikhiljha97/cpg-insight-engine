@@ -244,6 +244,8 @@ export default function NlqPanel({
   }, [draft, sendText]);
 
   const isDrawer = variant === "drawer";
+  /** Drawer may open with an assistant intro already in `turns` — still show starter chips until the user sends. */
+  const showStarterChips = !turns.some((t) => t.role === "user");
 
   return (
     <div
@@ -326,14 +328,14 @@ export default function NlqPanel({
         <div ref={endRef} />
       </div>
 
-      {turns.length === 0 && (
+      {showStarterChips && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
           {STARTER_CHIPS.map((c) => (
             <button
               key={c}
               type="button"
               disabled={loading}
-          onClick={() => void sendText(c)}
+              onClick={() => void sendText(c)}
               style={{
                 fontSize: 12,
                 padding: "6px 12px",

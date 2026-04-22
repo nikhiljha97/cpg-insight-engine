@@ -44,7 +44,7 @@ test("Dashboard: macro strip + NLQ in Insights Assistant drawer", async ({ page 
   await expect(assistant).toBeVisible();
   await expect(assistant.getByText("Export PDF").first()).toBeVisible();
   await expect(page.getByText("Ask me anything").first()).toBeVisible();
-  await page.getByRole("button", { name: /soup companions/i }).click();
+  await assistant.getByRole("button", { name: /soup companions/i }).click();
   await expect(page.getByText("UAT copilot")).toBeVisible({ timeout: 20_000 });
 });
 
