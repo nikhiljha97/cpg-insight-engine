@@ -1428,7 +1428,7 @@ app.get("/api/forecast/demand", async (req, res) => {
   }
 });
 
-// ── ROUTE: GET /api/sentiment/reddit-grocery (RSS + keyword + lexicon MVP) ─
+// ── ROUTE: GET /api/sentiment/reddit-grocery (public JSON hot + lexicon MVP) ─
 
 app.get("/api/sentiment/reddit-grocery", async (_req, res) => {
   if (redditSentimentCache && Date.now() - redditSentimentCache.fetchedAt < REDDIT_SENTIMENT_TTL_MS) {
@@ -1446,6 +1446,7 @@ app.get("/api/sentiment/reddit-grocery", async (_req, res) => {
       aggregateScore: 0,
       matchedCount: 0,
       posts: [],
+      usedFallback: false,
       subreddits: [],
       methodology: "Fetch failed — Reddit may rate-limit or block automated requests.",
     });

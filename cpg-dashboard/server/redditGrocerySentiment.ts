@@ -1,11 +1,14 @@
 /**
- * Public subreddit RSS snapshots, filtered to grocery / shopping / food-price themes.
- * Lexicon sentiment is a rough prototype — not NLP-grade; Reddit is a biased sample.
+ * Public Reddit JSON listings (hot) — no OAuth. Reddit may rate-limit; use descriptive User-Agent per their policy.
+ * Lexicon sentiment is a rough prototype — not NLP-grade.
+ *
+ * "Free Reddit API": read-only JSON from www.reddit.com is unauthenticated but intended for light use.
+ * For higher volume or private subs, register a free "script" app at reddit.com/prefs/apps and use OAuth.
  */
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; CPG-Insight-Engine/1.1; +https://github.com/nikhiljha97/cpg-insight-engine)";
+  "web:cpg-insight-engine:v1.4 (+https://github.com/nikhiljha97/cpg-insight-engine)";
 
-/** Canada-relevant communities (English). Posts are filtered client-side by grocery keywords. */
+/** Canada-relevant communities (English). */
 export const REDDIT_GROCERY_SUBS = [
   "canada",
   "AskCanada",
@@ -14,15 +17,22 @@ export const REDDIT_GROCERY_SUBS = [
   "vancouver",
   "Calgary",
   "onguardforthee",
+  "BuyCanadian",
+  "canadianfinance",
 ] as const;
 
-const GROCERY_RE =
-  /\b(grocery|groceries|supermarket|food\s*price|food\s*inflation|loblaws|sobeys|metro\s+inc|no\s*frills|costco|walmart|cart|checkout|shrinkflation|produce|dairy|pantry|takeout|restaurant\s+prices|shopping\s+for\s+food|food\s+bank)\b/i;
+/** Match if any pattern hits — broader than v1 so the page is not empty when "hot" is politics-heavy. */
+const GROCERY_TITLE_PATTERNS: RegExp[] = [
+  /\b(grocery|groceries|supermarket|food\s*bank|food\s*price|food\s*inflation|loblaw|sobeys|costco|walmart|shrinkflation|no\s*frills|freshco|metro\b|safeway|superstore)\b/i,
+  /\b(inflation|cpi|afford|checkout|shopping\s+cart|price\s+of\s+food|eating\s+out|restaurant\s+prices|takeout|delivery\s+fees)\b/i,
+  /\b(produce|dairy|pantry|meal\s*prep|student\s+food|rent\s+and\s+food|household\s+budget|grocery\s+bill)\b/i,
+  /\b(food|hungry|hunger)\b.*\b(price|cost|expensive|cheap|afford)\b|\b(price|cost|expensive)\b.*\b(food|grocer)\b/i,
+];
 
 const POS =
-  /\b(great|love|deal|cheap|better|happy|relief|good\s+news|finally|stocked|fresh|support)\b/i;
+  /\b(great|love|deal|cheap|better|happy|relief|good\s+news|finally|stocked|fresh|support|win)\b/i;
 const NEG =
-  /\b(expensive|price\s*gouging|angry|ridiculous|unaffordable|worst|shrinkflation|empty\s+shelves|shortage|struggle|scam)\b/i;
+  /\b(expensive|price\s*gouging|angry|ridiculous|unaffordable|worst|shrinkflation|empty\s+shelves|shortage|struggle|scam|brutal|insane)\b/i;
 
 export type RedditGroceryPost = {
   subreddit: string;
@@ -30,32 +40,85 @@ export type RedditGroceryPost = {
   link: string;
   published?: string;
   sentiment: number;
-  matched: boolean;
+  /** True when title matched grocery/shopping heuristics (score is meaningful). */
+  groceryMatch: boolean;
 };
 
-function parseRssItems(xml: string, subreddit: string): { title: string; link: string; pubDate?: string }[] {
-  const items: { title: string; link: string; pubDate?: string }[] = [];
-  const re = /<item>([\s\S]*?)<\/item>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) {
-    const block = m[1] ?? "";
-    const t = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i.exec(block);
-    const l = /<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i.exec(block);
-    const p = /<pubDate>([^<]*)<\/pubDate>/i.exec(block);
-    const title = (t?.[1] ?? "").replace(/<!\[CDATA\[|\]\]>/g, "").trim();
-    const link = (l?.[1] ?? "").trim();
-    if (title && link) items.push({ title, link, pubDate: p?.[1]?.trim() });
-  }
-  return items;
+type RedditListingChild = {
+  kind: string;
+  data?: {
+    title?: string;
+    permalink?: string;
+    url?: string;
+    subreddit?: string;
+    created_utc?: number;
+    stickied?: boolean;
+    is_self?: boolean;
+  };
+};
+
+function isGroceryTitle(title: string): boolean {
+  const t = title.trim();
+  if (t.length < 6) return false;
+  return GROCERY_TITLE_PATTERNS.some((re) => re.test(t));
 }
 
-function scoreTitle(title: string): { sentiment: number; matched: boolean } {
-  if (!GROCERY_RE.test(title)) return { sentiment: 0, matched: false };
+function scoreTitle(title: string, grocery: boolean): number {
+  if (!grocery) return 0;
   let s = 0;
   if (POS.test(title)) s += 0.35;
   if (NEG.test(title)) s -= 0.45;
   if (/[!?]{2,}/.test(title)) s -= 0.08;
-  return { sentiment: Math.max(-1, Math.min(1, s)), matched: true };
+  return Math.max(-1, Math.min(1, s));
+}
+
+function parseHotJson(json: unknown, subreddit: string): RedditGroceryPost[] {
+  const out: RedditGroceryPost[] = [];
+  const root = json as { data?: { children?: RedditListingChild[] } };
+  const children = root.data?.children ?? [];
+  for (const ch of children) {
+    if (ch.kind !== "t3" || !ch.data) continue;
+    const d = ch.data;
+    if (d.stickied) continue;
+    const title = (d.title ?? "").trim();
+    if (!title || /^reddit:/i.test(title)) continue;
+    const permalink = d.permalink ?? "";
+    const link = permalink.startsWith("http")
+      ? permalink
+      : `https://www.reddit.com${permalink.startsWith("/") ? permalink : "/" + permalink}`;
+    const published =
+      typeof d.created_utc === "number" ? new Date(d.created_utc * 1000).toISOString() : undefined;
+    const grocery = isGroceryTitle(title);
+    out.push({
+      subreddit: d.subreddit ?? subreddit,
+      title,
+      link,
+      published,
+      sentiment: scoreTitle(title, grocery),
+      groceryMatch: grocery,
+    });
+  }
+  return out;
+}
+
+async function fetchSubHotJson(sub: string): Promise<{ sub: string; posts: RedditGroceryPost[]; err?: string }> {
+  const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/hot.json?raw_json=1&limit=22`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      return { sub, posts: [], err: `${sub}: HTTP ${res.status}` };
+    }
+    const json: unknown = await res.json();
+    return { sub, posts: parseHotJson(json, sub) };
+  } catch (e) {
+    return { sub, posts: [], err: `${sub}: ${e instanceof Error ? e.message : "fetch failed"}` };
+  }
 }
 
 export async function fetchRedditGrocerySentimentSnapshot(): Promise<{
@@ -63,53 +126,61 @@ export async function fetchRedditGrocerySentimentSnapshot(): Promise<{
   aggregateScore: number;
   matchedCount: number;
   posts: RedditGroceryPost[];
+  usedFallback: boolean;
   subreddits: string[];
   methodology: string;
 }> {
-  const posts: RedditGroceryPost[] = [];
+  const all: RedditGroceryPost[] = [];
   const errors: string[] = [];
 
-  for (const sub of REDDIT_GROCERY_SUBS) {
-    const url = `https://www.reddit.com/r/${sub}/hot.rss?limit=15`;
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(12000),
-      });
-      if (!res.ok) {
-        errors.push(`${sub}: HTTP ${res.status}`);
-        continue;
-      }
-      const xml = await res.text();
-      const raw = parseRssItems(xml, sub);
-      for (const row of raw) {
-        if (/^reddit:/i.test(row.title)) continue;
-        const { sentiment, matched } = scoreTitle(row.title);
-        posts.push({
-          subreddit: sub,
-          title: row.title,
-          link: row.link,
-          published: row.pubDate,
-          sentiment,
-          matched,
-        });
-      }
-    } catch (e) {
-      errors.push(`${sub}: ${e instanceof Error ? e.message : "fetch failed"}`);
-    }
+  const results = await Promise.all(REDDIT_GROCERY_SUBS.map((s) => fetchSubHotJson(s)));
+  for (const r of results) {
+    if (r.err) errors.push(r.err);
+    all.push(...r.posts);
   }
 
-  const matched = posts.filter((p) => p.matched);
+  const groceryPosts = all.filter((p) => p.groceryMatch);
+  const usedFallback = groceryPosts.length === 0 && all.length > 0;
+
+  /** De-dupe by link, prefer grocery match */
+  const byLink = new Map<string, RedditGroceryPost>();
+  for (const p of all) {
+    const prev = byLink.get(p.link);
+    if (!prev || (p.groceryMatch && !prev.groceryMatch)) byLink.set(p.link, p);
+  }
+  const unique = [...byLink.values()];
+
+  const groceryUnique = unique.filter((p) => p.groceryMatch);
+  const displayPosts = groceryUnique.length
+    ? groceryUnique.sort((a, b) => b.sentiment - a.sentiment).slice(0, 40)
+    : unique
+        .sort((a, b) => (b.published ?? "").localeCompare(a.published ?? ""))
+        .slice(0, 28);
+
+  const aggSource = groceryUnique.length ? groceryUnique : [];
   const agg =
-    matched.length === 0 ? 0 : matched.reduce((s, p) => s + p.sentiment, 0) / matched.length;
+    aggSource.length === 0 ? 0 : aggSource.reduce((s, p) => s + p.sentiment, 0) / aggSource.length;
+
+  const methodology = [
+    `Sources: public https://www.reddit.com/r/{sub}/hot.json (no OAuth) for ${REDDIT_GROCERY_SUBS.join(", ")}.`,
+    "Titles are heuristically tagged for grocery / food-price / shopping context, then scored with a small positive/negative lexicon.",
+    usedFallback
+      ? "No grocery-tagged titles in this pull — showing unfiltered hot threads so the panel is not empty (scores are neutral)."
+      : "",
+    "Reddit is not representative of Canadian shoppers; English bias; corporate/marketing posts may skew hot.",
+    "Free tier: unauthenticated JSON is fine for low-volume dashboards; for production use a registered Reddit app (script OAuth) + caching and respect rate limits (see https://github.com/reddit-archive/reddit/wiki/API).",
+    errors.length ? `Fetch notes: ${errors.slice(0, 5).join("; ")}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return {
     fetchedAt: new Date().toISOString(),
     aggregateScore: Math.round(agg * 1000) / 1000,
-    matchedCount: matched.length,
-    posts: posts.filter((p) => p.matched).slice(0, 40),
+    matchedCount: groceryUnique.length,
+    posts: displayPosts,
+    usedFallback,
     subreddits: [...REDDIT_GROCERY_SUBS],
-    methodology:
-      `Reddit public RSS (hot) from ${REDDIT_GROCERY_SUBS.join(", ")} — titles only, keyword filter for grocery/shopping/food-price language, simple positive/negative lexicon. English bias; not representative of Canadian shoppers overall. ${errors.length ? "Partial errors: " + errors.slice(0, 3).join("; ") : ""}`.trim(),
+    methodology,
   };
 }

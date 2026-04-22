@@ -183,13 +183,14 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
         fetchedAt: "2030-01-01T00:00:00Z",
         aggregateScore: 0.06,
         matchedCount: 1,
+        usedFallback: false,
         posts: [
           {
             subreddit: "canada",
             title: "UAT grocery prices thread for sentiment tab",
             link: "https://www.reddit.com/r/canada/comments/uat123/",
             sentiment: 0.06,
-            matched: true,
+            groceryMatch: true,
           },
         ],
         subreddits: ["canada", "AskCanada"],
