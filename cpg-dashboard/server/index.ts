@@ -1372,9 +1372,22 @@ app.get("/api/traffic/gta", async (_req, res) => {
 
 // ── Internal: bust + warm caches (GitHub Actions cron, Bearer DATA_REFRESH_SECRET) ─
 
+/** Trim; strip one pair of surrounding ASCII quotes (common copy/paste mistake from Render UI). */
+function normalizeRefreshToken(raw: string): string {
+  let s = raw.trim();
+  if (s.length >= 2) {
+    const open = s[0];
+    const close = s[s.length - 1];
+    if ((open === '"' || open === "'") && close === open) {
+      s = s.slice(1, -1).trim();
+    }
+  }
+  return s;
+}
+
 app.post("/api/internal/refresh-caches", async (req, res) => {
   const secretRaw = process.env.DATA_REFRESH_SECRET;
-  const secret = typeof secretRaw === "string" ? secretRaw.trim() : "";
+  const secret = typeof secretRaw === "string" ? normalizeRefreshToken(secretRaw) : "";
   if (!secret) {
     res.status(503).json({
       ok: false,
@@ -1393,11 +1406,17 @@ app.post("/api/internal/refresh-caches", async (req, res) => {
     return;
   }
   const auth = req.headers.authorization;
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const bearerRaw = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
+  const bearer = normalizeRefreshToken(bearerRaw);
   const body = req.body as { secret?: unknown } | undefined;
-  const bodySecret = typeof body?.secret === "string" ? body.secret.trim() : "";
+  const bodySecret = typeof body?.secret === "string" ? normalizeRefreshToken(body.secret) : "";
   if (bearer !== secret && bodySecret !== secret) {
-    res.status(401).json({ ok: false, error: "Unauthorized" });
+    res.status(401).json({
+      ok: false,
+      error: "Unauthorized",
+      hint:
+        "The Bearer value (or JSON body.secret) must match DATA_REFRESH_SECRET on this API service exactly—same string as in Render → Environment (no extra spaces, newlines, or mismatched GitHub Actions secret). Example: curl -X POST ... -H 'Authorization: Bearer YOUR_SECRET' -d '{}'",
+    });
     return;
   }
   bustAllServerCaches();
@@ -1478,7 +1497,9 @@ app.post("/api/nlq/chat", async (req, res) => {
 
 const server = app.listen(PORT, "0.0.0.0", () => {
   const dr =
-    typeof process.env.DATA_REFRESH_SECRET === "string" ? process.env.DATA_REFRESH_SECRET.trim() : "";
+    typeof process.env.DATA_REFRESH_SECRET === "string"
+      ? normalizeRefreshToken(process.env.DATA_REFRESH_SECRET)
+      : "";
   let drStatus: string;
   if (dr.length >= 12) drStatus = "loaded (cron refresh enabled)";
   else if (dr.length > 0) drStatus = `too short (${dr.length} chars) — need ≥12`;
