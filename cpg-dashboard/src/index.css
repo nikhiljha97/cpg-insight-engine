@@ -43,12 +43,18 @@ textarea {
   position: fixed;
   inset: 0 auto 0 0;
   width: 220px;
+  height: 100vh;
+  max-height: 100vh;
   padding: 28px 20px;
   border-right: 1px solid var(--border);
   background: rgba(15, 17, 23, 0.96);
   display: flex;
   flex-direction: column;
   gap: 24px;
+  /* Extra nav links (Forecast, Sentiment, ESG) live below the fold on many laptops — scroll the rail */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar h1,
