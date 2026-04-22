@@ -24,6 +24,11 @@ test("Dashboard: weather + demand category", async ({ page }) => {
   await expect(catSelect).toHaveValue("Ice Cream");
   await expect(page.getByText(/Ontario retail · Ice Cream/)).toBeVisible();
   await expect(page.getByText(/Quarterly sales \(M\$ CAD\)/)).toBeVisible();
+  /* Ontario retail subtitle reflects the mapped StatCan NAICS row — must change across categories. */
+  await expect(page.getByText(/\[4452\]/)).toBeVisible();
+  await catSelect.selectOption("Hot Beverages");
+  await expect(page.getByText(/Ontario retail · Hot Beverages/)).toBeVisible();
+  await expect(page.getByText(/\[4453\]/)).toBeVisible();
 });
 
 test("Dashboard: macro strip + NLQ beta panel", async ({ page }) => {
