@@ -3,6 +3,13 @@
  * No OAuth: subject to Reddit terms, rate limits, and occasional HTTP errors.
  */
 
+import {
+  aggregatePulseSentiment,
+  scorePostSentiment,
+  type PulseAggregateSentiment,
+  type PulsePostSentiment,
+} from "./pulseSentimentMl.js";
+
 export type RedditSearchTemplate = {
   id: string;
   label: string;
@@ -256,6 +263,8 @@ export type RetailPulsePost = {
   matchedTemplates: string[];
   /** Server-side grocery / CPG signal (higher = more on-topic). */
   relevanceScore: number;
+  /** Lexicon + relevance-aware heuristic sentiment (see `sentimentAnalysis.methodology`). */
+  sentiment?: PulsePostSentiment;
 };
 
 type MergedPulsePost = Omit<RetailPulsePost, "relevanceScore">;
@@ -284,6 +293,8 @@ export type RetailPulseResponse = {
     minRelevanceRaw: number;
   };
   disclaimer: string;
+  /** Aggregate + methodology for lexicon / logistic-style sentiment on kept posts. */
+  sentimentAnalysis: PulseAggregateSentiment;
 };
 
 const DEFAULT_UA =
@@ -622,6 +633,13 @@ export async function getCanadaRetailPulse(options?: {
   posts.sort((a, b) => (b.createdUtc ?? 0) - (a.createdUtc ?? 0));
   const topPosts = posts.slice(0, 80);
 
+  const postsScored: RetailPulsePost[] = topPosts.map((p) => ({
+    ...p,
+    sentiment: scorePostSentiment(p.title, p.snippet, p.relevanceScore),
+  }));
+
+  const sentimentAnalysis = aggregatePulseSentiment(postsScored.map((p) => p.sentiment!.score));
+
   const body: RetailPulseResponse = {
     generatedAt: new Date().toISOString(),
     source: "reddit_public_search",
@@ -634,16 +652,17 @@ export async function getCanadaRetailPulse(options?: {
       samplePath
     },
     templates: templateMeta,
-    posts: topPosts,
-    topTerms: aggregateTopTerms(topPosts),
+    posts: postsScored,
+    topTerms: aggregateTopTerms(postsScored),
     filter: {
       rawCandidates,
-      kept: topPosts.length,
+      kept: postsScored.length,
       droppedSpam,
       droppedBlocklistSub,
       droppedLowRelevance,
       minRelevanceRaw: 4
     },
+    sentimentAnalysis,
     disclaimer:
       "Public search.json only — no OAuth. Searches use r/(Canada geo union)/search?restrict_sr=on plus post filters. Append subs with env REDDIT_CANADA_GEO_SUBS (comma-separated). Tune lists and scoring in server/redditCanadaRetailPulse.ts."
   };

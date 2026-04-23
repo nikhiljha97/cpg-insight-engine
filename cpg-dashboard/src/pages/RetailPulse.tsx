@@ -14,6 +14,7 @@ type RetailPulseResponse = {
     snippet: string;
     matchedTemplates: string[];
     relevanceScore: number;
+    sentiment?: { score: number; label: string; lexical: number; relevanceNorm: number };
   }[];
   topTerms: { term: string; count: number }[];
   search: {
@@ -32,6 +33,14 @@ type RetailPulseResponse = {
     minRelevanceRaw: number;
   };
   disclaimer: string;
+  sentimentAnalysis: {
+    meanScore: number;
+    index0to100: number;
+    label: string;
+    methodology: string;
+    sampleSize: number;
+    buckets: { stressHeavy: number; mixed: number; reliefLeaning: number };
+  };
 };
 
 export default function RetailPulse() {
@@ -69,7 +78,8 @@ export default function RetailPulse() {
           <p className="sidebar-copy" style={{ maxWidth: 900 }}>
             Reddit <strong>search.json</strong> only — <strong>no OAuth</strong>. Ten Canada-focused templates, then a{" "}
             <strong>grocery relevance score</strong> (plus spam + subreddit filters) so unrelated “Canada + price” noise
-            drops out. Searches run inside a <strong>Canada geo subreddit union</strong> with{" "}
+            drops out. Each kept post gets a <strong>lexicon + logistic-style sentiment score</strong> (heuristic ML
+            ensemble, not a fine-tuned transformer). Searches run inside a <strong>Canada geo subreddit union</strong> with{" "}
             <span className="mono">restrict_sr=on</span> (chunked <span className="mono">r/a+b+c/search.json</span>).{" "}
             <span className="mono">Matched</span> is which query template hit the post. Cache ~12 minutes. Env:{" "}
             <span className="mono">REDDIT_USER_AGENT</span>, <span className="mono">REDDIT_CANADA_GEO_SUBS</span> (comma
@@ -91,6 +101,23 @@ export default function RetailPulse() {
           {pulse.filter.rawCandidates} (spam −{pulse.filter.droppedSpam}, blocklist −{pulse.filter.droppedBlocklistSub},
           score −{pulse.filter.droppedLowRelevance})
         </p>
+      ) : null}
+
+      {pulse?.sentimentAnalysis ? (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>Pulse sentiment (aggregate)</h3>
+          <p className="sidebar-copy" style={{ marginTop: 0 }}>
+            <strong>Index {pulse.sentimentAnalysis.index0to100}/100</strong> · {pulse.sentimentAnalysis.label} · mean
+            polarity {pulse.sentimentAnalysis.meanScore.toFixed(3)} (n={pulse.sentimentAnalysis.sampleSize})
+          </p>
+          <p className="mono muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            Buckets — stress-heavy: {pulse.sentimentAnalysis.buckets.stressHeavy}, mixed:{" "}
+            {pulse.sentimentAnalysis.buckets.mixed}, relief-leaning: {pulse.sentimentAnalysis.buckets.reliefLeaning}.
+          </p>
+          <p className="mono muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            {pulse.sentimentAnalysis.methodology}
+          </p>
+        </div>
       ) : null}
       {loading && !pulse ? <div className="skeleton pitch-skeleton" /> : null}
 
@@ -132,7 +159,8 @@ export default function RetailPulse() {
               <tr>
                 <th>Sub</th>
                 <th>Title</th>
-                <th>Score</th>
+                <th>Rel.</th>
+                <th>Sentiment</th>
                 <th>Matched queries</th>
               </tr>
             </thead>
@@ -147,6 +175,18 @@ export default function RetailPulse() {
                     <div className="sidebar-copy snippet">{p.snippet}</div>
                   </td>
                   <td className="mono">{p.relevanceScore}</td>
+                  <td className="mono">
+                    {p.sentiment ? (
+                      <>
+                        {(p.sentiment.score * 100).toFixed(0)}
+                        <div className="muted" style={{ fontSize: 11 }}>
+                          {p.sentiment.label}
+                        </div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="mono matched-col">{p.matchedTemplates.join(", ")}</td>
                 </tr>
               ))}

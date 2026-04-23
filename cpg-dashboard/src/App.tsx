@@ -14,10 +14,14 @@ import RetailPulse from "./pages/RetailPulse";
 import About from "./pages/About";
 import { WeatherProvider } from "./pages/WeatherContext";
 import InsightsAssistantDrawer from "./components/InsightsAssistantDrawer";
+import SignalsAddonBanner from "./components/SignalsAddonBanner";
 import { UiDensityProvider, useUiDensity } from "./components/UiDensity";
+import { SignalsAddonProvider } from "./context/SignalsAddonContext";
 
-/** Flip to `true` to restore the Brand Sentiment nav link and page (`BrandSentiment.tsx` is unchanged). */
-const ENABLE_BRAND_SENTIMENT_PAGE = false;
+/** Enables Brand Sentiment + standalone Reddit pulse (gated together). */
+const ENABLE_BRAND_SENTIMENT_PAGE = true;
+
+const BRAND_SENTIMENT_GATED_HREFS = new Set(["/sentiment", "/reddit-pulse"]);
 
 const allNavItems = [
   { href: "/", label: "About" },
@@ -36,10 +40,14 @@ const allNavItems = [
 
 const navItems = ENABLE_BRAND_SENTIMENT_PAGE
   ? allNavItems
-  : allNavItems.filter((item) => item.href !== "/sentiment");
+  : allNavItems.filter((item) => !BRAND_SENTIMENT_GATED_HREFS.has(item.href));
 
 function SentimentRoute() {
   return ENABLE_BRAND_SENTIMENT_PAGE ? <BrandSentiment /> : <Redirect to="/dashboard" />;
+}
+
+function RedditPulseRoute() {
+  return ENABLE_BRAND_SENTIMENT_PAGE ? <RetailPulse /> : <Redirect to="/dashboard" />;
 }
 
 function DensityToggle() {
@@ -86,18 +94,21 @@ export default function App() {
             </aside>
 
             <main className="content">
-              <Route path="/" component={About} />
-              <Route path="/dashboard" component={Dashboard} />
-              <Route path="/basket" component={BasketAnalysis} />
-              <Route path="/history" component={PitchHistory} />
-              <Route path="/promo" component={PromoAttribution} />
-              <Route path="/elasticity" component={PriceElasticity} />
-              <Route path="/demographics" component={DemographicSegments} />
-              <Route path="/forecast" component={DemandForecast} />
-              <Route path="/signals" component={SentimentMacro} />
-              <Route path="/reddit-pulse" component={RetailPulse} />
-              <Route path="/sentiment" component={SentimentRoute} />
-              <Route path="/esg" component={EsgInsights} />
+              <SignalsAddonProvider>
+                <SignalsAddonBanner />
+                <Route path="/" component={About} />
+                <Route path="/dashboard" component={Dashboard} />
+                <Route path="/basket" component={BasketAnalysis} />
+                <Route path="/history" component={PitchHistory} />
+                <Route path="/promo" component={PromoAttribution} />
+                <Route path="/elasticity" component={PriceElasticity} />
+                <Route path="/demographics" component={DemographicSegments} />
+                <Route path="/forecast" component={DemandForecast} />
+                <Route path="/signals" component={SentimentMacro} />
+                <Route path="/reddit-pulse" component={RedditPulseRoute} />
+                <Route path="/sentiment" component={SentimentRoute} />
+                <Route path="/esg" component={EsgInsights} />
+              </SignalsAddonProvider>
             </main>
             <InsightsAssistantDrawer />
           </div>

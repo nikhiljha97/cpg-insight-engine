@@ -94,7 +94,9 @@ test("Demand Forecast, macro Sentiment + Reddit pulse, Brand Sentiment redirect,
   await expect(page.getByText(/UAT Reddit Canada retail pulse stub/i)).toBeVisible();
 
   await page.goto("/#/sentiment");
-  await expect(page.getByRole("heading", { name: "CPG Analytics Dashboard" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Brand & grocery sentiment (Reddit)" })).toBeVisible({
+    timeout: 30_000,
+  });
 
   await page.goto("/#/esg");
   await expect(page.getByRole("heading", { name: "ESG insights" })).toBeVisible({ timeout: 30_000 });
