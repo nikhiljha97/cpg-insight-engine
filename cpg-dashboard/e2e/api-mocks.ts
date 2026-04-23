@@ -346,6 +346,63 @@ export async function installUpstreamMocks(page: Page): Promise<void> {
     });
   });
 
+  await page.route("**/api/statcan/summary**", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        attribution: "UAT StatCan summary stub (Playwright).",
+        catalogBrowseUrl: "https://www150.statcan.gc.ca/n1/en/type/data",
+        wdsNote: "Not live WDS.",
+        generatedAt: "2030-01-01T00:00:00.000Z",
+        liteListSyncedAt: null,
+        catalogEntryCount: 0,
+        catalogSample: [],
+        catalogAutoPreviews: [],
+        curated: [],
+      }),
+    });
+  });
+
+  await page.route("**/api/reddit-canada-retail-pulse**", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        generatedAt: "2030-01-01T00:00:00.000Z",
+        source: "reddit_public_search",
+        oauthRequired: false,
+        templates: [{ id: "uat", label: "UAT template", q: "grocery", fetched: 0, ok: true }],
+        posts: [],
+        topTerms: [],
+        search: {
+          mode: "subreddit_restrict_sr",
+          subredditCount: 12,
+          chunkCount: 1,
+          chunkSize: 20,
+          samplePath: "r/uat",
+        },
+        filter: {
+          rawCandidates: 0,
+          kept: 0,
+          droppedSpam: 0,
+          droppedBlocklistSub: 0,
+          droppedLowRelevance: 0,
+          minRelevanceRaw: 0,
+        },
+        disclaimer: "UAT Reddit Canada retail pulse stub.",
+      }),
+    });
+  });
+
   await page.route("**/api/basket-insights**", async (route) => {
     if (route.request().method() !== "GET") {
       await route.continue();

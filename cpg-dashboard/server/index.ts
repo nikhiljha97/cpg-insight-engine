@@ -21,6 +21,8 @@ import {
 } from "./demandCategoryStatcan.js";
 import { buildDemandForecastMvp } from "./demandForecast.js";
 import { fetchRedditGrocerySentimentSnapshot } from "./redditGrocerySentiment.js";
+import { getCanadaRetailPulse } from "./redditCanadaRetailPulse.js";
+import { registerStatCanRoutes } from "./statcan/statcanRoutes.js";
 import { parseDemandCategoryQuery, projectDemographics } from "./demographicsProjection.js";
 import {
   API_DEFAULT_PORT,
@@ -182,6 +184,7 @@ const corsOrigins = [
     .filter(Boolean) ?? [])
 ];
 app.use(cors({ origin: corsOrigins }));
+registerStatCanRoutes(app);
 app.use("/api", (_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
@@ -1461,6 +1464,31 @@ app.get("/api/sentiment/reddit-grocery", async (_req, res) => {
       subreddits: [],
       methodology: "Fetch failed — Reddit may rate-limit or block automated requests.",
     });
+  }
+});
+
+// ── Canada retail pulse (public Reddit search.json, no OAuth) ───────────────────────
+
+app.get("/api/reddit-canada-retail-pulse", async (req, res) => {
+  try {
+    const force = req.query.refresh === "1" || req.query.refresh === "true";
+    const maxTemplates =
+      typeof req.query.templates === "string" ? Number.parseInt(req.query.templates, 10) : undefined;
+    const perLimit =
+      typeof req.query.perLimit === "string" ? Number.parseInt(req.query.perLimit, 10) : undefined;
+    const chunkSize =
+      typeof req.query.chunkSize === "string" ? Number.parseInt(req.query.chunkSize, 10) : undefined;
+    const payload = await getCanadaRetailPulse({
+      forceRefresh: force,
+      maxTemplates: Number.isFinite(maxTemplates) ? maxTemplates : undefined,
+      perTemplateLimit: Number.isFinite(perLimit) ? perLimit : undefined,
+      subredditChunkSize: Number.isFinite(chunkSize) ? chunkSize : undefined
+    });
+    res.json(payload);
+  } catch (err) {
+    console.error("[reddit-canada-retail-pulse]", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ error: message });
   }
 });
 

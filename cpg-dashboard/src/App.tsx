@@ -9,6 +9,8 @@ import DemographicSegments from "./pages/DemographicSegments";
 import DemandForecast from "./pages/DemandForecast";
 import BrandSentiment from "./pages/BrandSentiment";
 import EsgInsights from "./pages/EsgInsights";
+import SentimentMacro from "./pages/SentimentMacro";
+import RetailPulse from "./pages/RetailPulse";
 import About from "./pages/About";
 import { WeatherProvider } from "./pages/WeatherContext";
 import InsightsAssistantDrawer from "./components/InsightsAssistantDrawer";
@@ -26,6 +28,8 @@ const allNavItems = [
   { href: "/elasticity", label: "Price Elasticity" },
   { href: "/demographics", label: "Demographics" },
   { href: "/forecast", label: "Demand Forecast" },
+  { href: "/signals", label: "Sentiment & macro" },
+  { href: "/reddit-pulse", label: "Reddit pulse" },
   { href: "/sentiment", label: "Brand Sentiment" },
   { href: "/esg", label: "ESG Insights" },
 ];
@@ -90,6 +94,8 @@ export default function App() {
               <Route path="/elasticity" component={PriceElasticity} />
               <Route path="/demographics" component={DemographicSegments} />
               <Route path="/forecast" component={DemandForecast} />
+              <Route path="/signals" component={SentimentMacro} />
+              <Route path="/reddit-pulse" component={RetailPulse} />
               <Route path="/sentiment" component={SentimentRoute} />
               <Route path="/esg" component={EsgInsights} />
             </main>

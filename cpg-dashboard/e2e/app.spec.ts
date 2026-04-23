@@ -78,10 +78,20 @@ test("Basket Analysis: category lens and sync from Dashboard", async ({ page }) 
   await expect(page.getByRole("heading", { name: /BBQ Meats basket lens/i })).toBeVisible({ timeout: 20_000 });
 });
 
-test("Demand Forecast, Sentiment disabled redirect, ESG Insights pages", async ({ page }) => {
+test("Demand Forecast, macro Sentiment + Reddit pulse, Brand Sentiment redirect, ESG", async ({ page }) => {
   await page.goto("/#/forecast");
   await expect(page.getByRole("heading", { name: "Demand forecast index" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/UAT demand forecast stub/i)).toBeVisible();
+
+  await page.goto("/#/signals");
+  await expect(page.getByRole("heading", { name: "Public signals" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/UAT StatCan summary stub/i)).toBeVisible();
+
+  await page.goto("/#/reddit-pulse");
+  await expect(page.getByRole("heading", { name: "Canada retail & grocery pulse" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText(/UAT Reddit Canada retail pulse stub/i)).toBeVisible();
 
   await page.goto("/#/sentiment");
   await expect(page.getByRole("heading", { name: "CPG Analytics Dashboard" })).toBeVisible({ timeout: 30_000 });

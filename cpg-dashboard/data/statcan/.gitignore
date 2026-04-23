@@ -1,0 +1,7 @@
+lite-list.json
+catalog.json
+snapshots.json
+state.json
+code-sets.json
+series-*.json
+auto-preview-cache.json

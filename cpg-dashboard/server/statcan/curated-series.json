@@ -1,0 +1,23 @@
+[
+  {
+    "id": "egg-production-shell-canada",
+    "productId": 32100121,
+    "coordinate": "1.3.0.0.0.0.0.0.0.0",
+    "titleEn": "Production of eggs in shell — Canada (monthly)",
+    "tablePid": 32100121
+  },
+  {
+    "id": "fppi-eggs-in-shell-canada",
+    "productId": 32100098,
+    "coordinate": "1.13.0.0.0.0.0.0.0.0",
+    "titleEn": "Farm product price index — eggs in shell — Canada (monthly)",
+    "tablePid": 32100098
+  },
+  {
+    "id": "stocks-frozen-eggs-canada",
+    "productId": 32100123,
+    "coordinate": "1.1.0.0.0.0.0.0.0.0",
+    "titleEn": "Stocks of frozen eggs — whole eggs, total — Canada (monthly)",
+    "tablePid": 32100123
+  }
+]

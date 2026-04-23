@@ -1,5 +1,6 @@
 import { apiUrl } from "../api";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "wouter";
 import LastUpdated from "./LastUpdated";
 import { useWeatherContext } from "./WeatherContext";
 import { DEMAND_CATEGORY_LIST, isDemandCategory } from "../constants/demandCategories";
@@ -249,6 +250,12 @@ export default function BasketAnalysis() {
               with Demand Sensitivity. Basket companions use live soup co-purchase rows for{" "}
               <strong>Canned Soup</strong> when available, and curated estimates for other categories; pairs are
               filtered from <code>output/unified_signal.json</code>.
+            </p>
+            <p className="muted" style={{ marginTop: 12, marginBottom: 0, fontSize: 13 }}>
+              For <strong>StatCan food tables</strong> plus <strong>Canada grocery / retail</strong> discussion on Reddit
+              (public search, no OAuth), open{" "}
+              <Link href="/signals">Sentiment &amp; macro</Link> or <Link href="/reddit-pulse">Reddit pulse</Link>
+              .
             </p>
           </SectionCard>
         </>
